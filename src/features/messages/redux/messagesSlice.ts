@@ -44,6 +44,10 @@ function upsertThread(state: MessagesState, thread: ThreadEntity) {
   }
 }
 
+function dedupeIds(ids: string[]): string[] {
+  return Array.from(new Set(ids));
+}
+
 const initialState: MessagesState = {
   threadsById: {},
   threadIds: [],
@@ -121,6 +125,7 @@ const messagesSlice = createSlice({
         thread.messageIds = thread.messageIds.map((id) =>
           id === local.id ? serverMessage.id : id,
         );
+        thread.messageIds = dedupeIds(thread.messageIds);
       } else {
         state.messagesById[serverMessage.id] = {
           ...state.messagesById[serverMessage.id],
@@ -130,6 +135,7 @@ const messagesSlice = createSlice({
         if (!thread.messageIds.includes(serverMessage.id)) {
           thread.messageIds.push(serverMessage.id);
         }
+        thread.messageIds = dedupeIds(thread.messageIds);
       }
 
     },

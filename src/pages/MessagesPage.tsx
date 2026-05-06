@@ -25,6 +25,7 @@ import {
 } from "@/features/messages/redux/messagesSlice";
 import type { MessageEntity, ThreadEntity, ThreadPeer } from "@/features/messages/types";
 import { apiRequest } from "@/lib/api";
+import { getSocket } from "@/lib/socket";
 
 type MessageView = MessageEntity & { timestamp: Date };
 type ConversationView = {
@@ -270,6 +271,7 @@ function MessagesPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasAutoScrolledRef = useRef(false);
 
   /** IDs of users this account follows OR who follow this account (friends/following). */
   const contactableUserIds = useMemo(() => {
@@ -321,6 +323,34 @@ function MessagesPage() {
     [convos, activeId],
   );
 
+  useEffect(() => {
+    if (!activeId) return;
+    const socket = getSocket();
+    if (!socket) return;
+
+    socket.emit("thread:join", activeId);
+    return () => {
+      socket.emit("thread:leave", activeId);
+    };
+  }, [activeId]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onMessageNew = (payload: { message?: MessageEntity }) => {
+      if (!payload?.message) return;
+      if (payload.message.senderId === myId) return;
+      dispatch(upsertMessagesFromServer([payload.message]));
+    };
+
+    socket.off("message:new", onMessageNew);
+    socket.on("message:new", onMessageNew);
+    return () => {
+      socket.off("message:new", onMessageNew);
+    };
+  }, [dispatch, myId]);
+
   const filteredConvos = useMemo(
     () =>
       convos.filter(
@@ -333,8 +363,15 @@ function MessagesPage() {
 
   /* Scroll to bottom on new message */
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({
+      behavior: hasAutoScrolledRef.current ? "smooth" : "auto",
+    });
+    hasAutoScrolledRef.current = true;
   }, [activeConvo?.messages.length]);
+
+  useEffect(() => {
+    hasAutoScrolledRef.current = false;
+  }, [activeId]);
 
   useEffect(() => {
     async function loadThreads() {
@@ -351,6 +388,26 @@ function MessagesPage() {
         for (const thread of response.data.threads || []) {
           dispatch(upsertThreadFromServer(thread));
         }
+
+        const latestPerThread = await Promise.all(
+          (response.data.threads || []).map(async (thread) => {
+            try {
+              const messagesResponse = await apiRequest<{
+                data: { messages: MessageEntity[] };
+              }>(`/api/messages/threads/${thread.id}`, {
+                headers: { Authorization: `Bearer ${authToken}` },
+              });
+              const last = messagesResponse.data.messages?.at(-1);
+              return last ? [last] : [];
+            } catch {
+              return [];
+            }
+          }),
+        );
+        const flattened = latestPerThread.flat();
+        if (flattened.length > 0) {
+          dispatch(upsertMessagesFromServer(flattened));
+        }
       } catch {
         // Keep existing local messages state if backend fetch fails.
       }
@@ -358,6 +415,27 @@ function MessagesPage() {
 
     loadThreads();
   }, [authToken, myId, dispatch]);
+
+  async function markThreadReadOnServer(threadId: string) {
+    if (!authToken || !myId) return;
+    try {
+      const readResponse = await apiRequest<{
+        data: { threadId: string; lastReadMessageId: string | null };
+      }>(`/api/messages/threads/${threadId}/read`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      dispatch(
+        readCursorUpdated({
+          threadId: readResponse.data.threadId,
+          userId: myId,
+          lastReadMessageId: readResponse.data.lastReadMessageId,
+        }),
+      );
+    } catch {
+      // Read cursor sync is best-effort.
+    }
+  }
 
   /* Mark as read on open */
   async function openConvo(id: string) {
@@ -378,25 +456,13 @@ function MessagesPage() {
     } catch {
       // Keep current thread messages if backend fetch fails.
     }
-
-    try {
-      const readResponse = await apiRequest<{
-        data: { threadId: string; lastReadMessageId: string | null };
-      }>(`/api/messages/threads/${id}/read`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      dispatch(
-        readCursorUpdated({
-          threadId: readResponse.data.threadId,
-          userId: myId,
-          lastReadMessageId: readResponse.data.lastReadMessageId,
-        }),
-      );
-    } catch {
-      // Read cursor sync is best-effort.
-    }
+    await markThreadReadOnServer(id);
   }
+
+  useEffect(() => {
+    if (!activeId || !activeConvo) return;
+    void markThreadReadOnServer(activeId);
+  }, [activeId, activeConvo?.messages.length]);
 
   /* Send message */
   async function sendMessage() {

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { setActiveModal } from "@/features/ui/redux/uiSlice";
 import { apiRequest } from "@/lib/api";
+import { getSocket } from "@/lib/socket";
 
 type NotificationItem = {
   id: string;
@@ -39,6 +40,21 @@ function NotificationIcon({ type }: { type: NotificationItem["type"] }) {
   return <UserPlus className="h-4 w-4 text-green-600" />;
 }
 
+function formatRelativeTime(iso?: string): string {
+  if (!iso) return "now";
+  const date = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const mins = Math.max(0, Math.floor(diffMs / 60000));
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+}
+
 function NotificationsPage() {
   const dispatch = useAppDispatch();
   const authUser = useAppSelector((s) => s.auth.user);
@@ -49,6 +65,7 @@ function NotificationsPage() {
   >([]);
   const [isLoadingBackend, setIsLoadingBackend] = useState(false);
   const [backendError, setBackendError] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const followActivityCount = useMemo(() => {
     if (!authUser) return 0;
@@ -108,6 +125,16 @@ function NotificationsPage() {
         );
 
         setBackendNotifications(mapped);
+        const unreadIds = mapped.filter((n) => !n.isRead).map((n) => n.id);
+        if (unreadIds.length > 0) {
+          await apiRequest("/api/notifications/read-all", {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          setBackendNotifications((prev) =>
+            prev.map((n) => ({ ...n, isRead: true })),
+          );
+        }
       } catch {
         // Keep previous backend notifications visible on transient failures.
         setBackendError("Could not refresh notifications right now.");
@@ -131,7 +158,21 @@ function NotificationsPage() {
       window.clearInterval(intervalId);
       window.removeEventListener("focus", onFocus);
     };
-  }, [authToken]);
+  }, [authToken, refreshTick]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onNotificationNew = () => {
+      setRefreshTick((prev) => prev + 1);
+    };
+
+    socket.on("notification:new", onNotificationNew);
+    return () => {
+      socket.off("notification:new", onNotificationNew);
+    };
+  }, []);
 
   async function handleNotificationClick(itemId: string, isRead?: boolean) {
     if (!authToken || isRead) return;
@@ -276,7 +317,7 @@ function NotificationsPage() {
               </Link>
 
               <span className="ml-auto text-xs text-zinc-500">
-                {item.isRead ? "read" : "now"}
+                {formatRelativeTime(item.createdAt)}
               </span>
             </div>
           ))

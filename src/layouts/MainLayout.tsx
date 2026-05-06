@@ -46,6 +46,7 @@ import {
 import CreatePostForm from "@/features/posts/components/CreatePostForm";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { connectSocket, disconnectSocket } from "@/lib/socket";
 const NAV_ITEMS = [
   { label: "Home", icon: House, to: "/" },
   { label: "Search", icon: Search, to: "/search" },
@@ -384,6 +385,19 @@ function MainLayout() {
       .map((id) => usersById[id])
       .filter((u): u is UserRecord => Boolean(u));
   }, [authUser, allUserIds, usersById]);
+
+  useEffect(() => {
+    if (!authToken || !authUser) {
+      disconnectSocket();
+      return;
+    }
+
+    connectSocket(authToken);
+
+    return () => {
+      disconnectSocket();
+    };
+  }, [authToken, authUser]);
 
   useEffect(() => {
     async function loadUsersFromBackend() {
