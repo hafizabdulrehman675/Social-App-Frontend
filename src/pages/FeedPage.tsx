@@ -255,9 +255,16 @@ function PostCard({
   const [commentInput, setCommentInput] = useState<string>("");
   const [replyTo, setReplyTo] = useState<PostComment | null>(null);
   const [commentsVisible, setCommentsVisible] = useState(true);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [hasImageError, setHasImageError] = useState(false);
 
   const comments = post.comments ?? [];
   const hasComments = comments.length > 0;
+
+  useEffect(() => {
+    setIsImageLoaded(false);
+    setHasImageError(false);
+  }, [post.imageUrl]);
 
   function handleDoubleTap() {
     if (!post.isLiked) {
@@ -373,11 +380,31 @@ function PostCard({
         <p className="text-left leading-snug p-2 pt-1">
           <span className="text-[18px] text-zinc-900">{post.caption}</span>
         </p>
+        {!isImageLoaded && !hasImageError ? (
+          <div
+            className="h-[400px] w-full"
+            style={{
+              background:
+                "linear-gradient(110deg, #e5e7eb 8%, #f3f4f6 18%, #e5e7eb 33%)",
+              backgroundSize: "200% 100%",
+              animation: "feedShimmer 1.2s linear infinite",
+            }}
+          />
+        ) : null}
+        {hasImageError ? (
+          <div className="flex h-[400px] w-full items-center justify-center bg-zinc-100 text-sm text-zinc-500">
+            Failed to load image
+          </div>
+        ) : null}
         <img
           src={post.imageUrl}
           alt={post.caption}
-          className="max-h-[400px] w-full object-fill select-none"
-          // style={{ aspectRatio: "1 / 1" }}
+          loading="lazy"
+          onLoad={() => setIsImageLoaded(true)}
+          onError={() => setHasImageError(true)}
+          className={`max-h-[400px] w-full object-fill select-none transition-opacity duration-300 ${
+            isImageLoaded ? "opacity-100" : "opacity-0 absolute inset-0"
+          }`}
           draggable={false}
         />
       </div>
@@ -554,6 +581,7 @@ function PostCard({
 // ── Feed page ──────────────────────────────────────────────────────────────
 function FeedPage() {
   const dispatch = useAppDispatch();
+  const [isLoadingFeed, setIsLoadingFeed] = useState(false);
 
   const allPosts = useAppSelector((state) =>
     state.posts.feedPostIds
@@ -570,6 +598,7 @@ function FeedPage() {
   useEffect(() => {
     async function loadFeed() {
       if (!authToken) return;
+      setIsLoadingFeed(true);
       try {
         const response = await apiRequest<{ data: { posts: BackendPost[] } }>(
           "/api/posts/feed",
@@ -584,6 +613,8 @@ function FeedPage() {
         );
       } catch {
         // Keep current state if feed request fails.
+      } finally {
+        setIsLoadingFeed(false);
       }
     }
 
@@ -705,6 +736,12 @@ function FeedPage() {
 
   return (
     <>
+      <style>{`
+        @keyframes feedShimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+      `}</style>
       {/* Heart burst animation */}
       {/* <style>{`
         @keyframes heartPop {
@@ -725,6 +762,7 @@ function FeedPage() {
         {/* Posts */}
         <div>
           {posts.length === 0 ? (
+            isLoadingFeed ? null : (
             <div className="flex flex-col items-center justify-center py-24 text-center px-6">
               <div
                 className="mb-5 flex size-20 items-center justify-center rounded-full"
@@ -739,6 +777,7 @@ function FeedPage() {
                 Follow people to see their photos and videos here.
               </p>
             </div>
+            )
           ) : (
             posts.map((post) => (
               <PostCard
