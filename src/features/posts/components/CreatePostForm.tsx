@@ -1,7 +1,8 @@
 import { useFormik } from "formik";
 import * as Yup from "yup";
+import { useMemo, useState } from "react";
 
-import { apiRequest } from "@/lib/api";
+import { apiRequest, ensureAvatarUrl } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { addPost } from "@/features/posts/redux/postsSlice";
 import type { FeedPost } from "@/features/posts/types";
@@ -16,10 +17,6 @@ type CreatePostFormProps = {
 };
 
 const CreatePostSchema = Yup.object({
-  imageUrl: Yup.string()
-    .trim()
-    .url("Enter a valid image URL.")
-    .required("Image URL is required."),
   caption: Yup.string()
     .trim()
     .min(2, "Caption must be at least 2 characters.")
@@ -31,10 +28,16 @@ function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
   const dispatch = useAppDispatch();
   const authUser = useAppSelector((s) => s.auth.user);
   const authToken = useAppSelector((s) => s.auth.token);
+  const [postImageFile, setPostImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+
+  const safeAvatar = useMemo(
+    () => ensureAvatarUrl(authUser?.avatarUrl),
+    [authUser?.avatarUrl],
+  );
 
   const formik = useFormik({
     initialValues: {
-      imageUrl: "",
       caption: "",
       location: "",
     },
@@ -45,8 +48,18 @@ function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
         setSubmitting(false);
         return;
       }
+      if (!postImageFile) {
+        setStatus("Please choose an image.");
+        setSubmitting(false);
+        return;
+      }
 
       try {
+        const formData = new FormData();
+        formData.append("image", postImageFile);
+        formData.append("caption", values.caption.trim());
+        formData.append("location", values.location.trim());
+
         const response = await apiRequest<{
           data: {
             post: {
@@ -60,11 +73,7 @@ function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
         }>("/api/posts", {
           method: "POST",
           headers: { Authorization: `Bearer ${authToken}` },
-          body: JSON.stringify({
-            imageUrl: values.imageUrl.trim(),
-            caption: values.caption.trim(),
-            location: values.location.trim(),
-          }),
+          body: formData,
         });
 
         const created = response.data.post;
@@ -72,7 +81,7 @@ function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
           id: String(created.id),
           authorId: String(created.userId),
           username: authUser.username,
-          avatarUrl: authUser.avatarUrl ?? "https://i.pravatar.cc/100?u=fallback",
+          avatarUrl: safeAvatar,
           location: created.location ?? "",
           imageUrl: created.imageUrl,
           likesCount: 0,
@@ -86,6 +95,8 @@ function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
 
         dispatch(addPost(newPost));
         resetForm();
+        setPostImageFile(null);
+        setImagePreviewUrl(null);
         setStatus(undefined);
         onSuccess?.();
       } catch {
@@ -102,19 +113,30 @@ function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
   return (
     <form className="space-y-4" onSubmit={formik.handleSubmit} noValidate>
       <div className="space-y-2">
-        <Label htmlFor="create-image-url">Image URL</Label>
+        <Label htmlFor="create-image-file">Image</Label>
         <Input
-          id="create-image-url"
-          name="imageUrl"
-          value={formik.values.imageUrl}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          className={fieldError("imageUrl") ? "border-red-500" : ""}
-          placeholder="https://..."
+          id="create-image-file"
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0] ?? null;
+            setPostImageFile(file);
+            if (!file) {
+              setImagePreviewUrl(null);
+              return;
+            }
+            setImagePreviewUrl(URL.createObjectURL(file));
+          }}
         />
-        {fieldError("imageUrl") ? (
-          <p className="text-xs text-red-600">{fieldError("imageUrl")}</p>
-        ) : null}
+        {imagePreviewUrl ? (
+          <img
+            src={imagePreviewUrl}
+            alt="Post preview"
+            className="h-40 w-full rounded-md object-cover"
+          />
+        ) : (
+          <p className="text-xs text-zinc-500">Choose JPG, PNG or WEBP image.</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -150,12 +172,20 @@ function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
       </div>
 
       {formik.status ? <p className="text-sm text-red-600">{formik.status}</p> : null}
+      {formik.isSubmitting ? (
+        <p className="text-sm text-zinc-600">Uploading image and creating post...</p>
+      ) : null}
 
       <div className="flex gap-2">
         <Button type="submit" disabled={formik.isSubmitting}>
-          Share
+          {formik.isSubmitting ? "Sharing..." : "Share"}
         </Button>
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={formik.isSubmitting}
+        >
           Cancel
         </Button>
       </div>
