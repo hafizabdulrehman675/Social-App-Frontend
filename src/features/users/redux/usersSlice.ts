@@ -94,6 +94,7 @@ const usersSlice = createSlice({
         username: string;
         email: string;
         newPassword?: string;
+        avatarUrl?: string | null;
       }>,
     ) {
       const u = state.usersById[action.payload.userId];
@@ -103,6 +104,9 @@ const usersSlice = createSlice({
       u.email = action.payload.email.trim();
       if (action.payload.newPassword) {
         u.password = action.payload.newPassword;
+      }
+      if (action.payload.avatarUrl !== undefined) {
+        u.avatarUrl = action.payload.avatarUrl;
       }
     },
   },

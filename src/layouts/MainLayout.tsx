@@ -49,11 +49,12 @@ import { cn } from "@/lib/utils";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
 const NAV_ITEMS = [
   { label: "Home", icon: House, to: "/" },
-  { label: "Search", icon: Search, to: "/search" },
+  // { label: "Search", icon: Search, to: "/search" },
   { label: "Explore", icon: Compass, to: "/explore" },
-  { label: "Reels", icon: Film, to: "/reels" },
-  { label: "Messages", icon: MessageCircle, to: "/messages" },
   { label: "Notifications", icon: Heart, to: "/notifications" },
+  // { label: "Reels", icon: Film, to: "/reels" },
+  { label: "Messages", icon: MessageCircle, to: "/messages" },
+
   { label: "Create", icon: PlusSquare, to: "/create" },
 ];
 
@@ -164,11 +165,14 @@ function SuggestedUserRow({
               onClick={async () => {
                 if (!authToken) return;
                 try {
-                  await apiRequest(`/api/social/follow-requests/${rel.requestId}`, {
-                    method: "PATCH",
-                    headers: { Authorization: `Bearer ${authToken}` },
-                    body: JSON.stringify({ action: "accept" }),
-                  });
+                  await apiRequest(
+                    `/api/social/follow-requests/${rel.requestId}`,
+                    {
+                      method: "PATCH",
+                      headers: { Authorization: `Bearer ${authToken}` },
+                      body: JSON.stringify({ action: "accept" }),
+                    },
+                  );
                   dispatch(acceptFollowRequest({ requestId: rel.requestId }));
                 } catch {
                   // keep current state on error
@@ -185,11 +189,14 @@ function SuggestedUserRow({
               onClick={async () => {
                 if (!authToken) return;
                 try {
-                  await apiRequest(`/api/social/follow-requests/${rel.requestId}`, {
-                    method: "PATCH",
-                    headers: { Authorization: `Bearer ${authToken}` },
-                    body: JSON.stringify({ action: "reject" }),
-                  });
+                  await apiRequest(
+                    `/api/social/follow-requests/${rel.requestId}`,
+                    {
+                      method: "PATCH",
+                      headers: { Authorization: `Bearer ${authToken}` },
+                      body: JSON.stringify({ action: "reject" }),
+                    },
+                  );
                   dispatch(rejectFollowRequest({ requestId: rel.requestId }));
                 } catch {
                   // keep current state on error
@@ -219,9 +226,12 @@ function SuggestedUserRow({
                 );
               } catch {
                 try {
-                  const sync = await apiRequest<{ data: SocialState }>("/api/social/me", {
-                    headers: { Authorization: `Bearer ${authToken}` },
-                  });
+                  const sync = await apiRequest<{ data: SocialState }>(
+                    "/api/social/me",
+                    {
+                      headers: { Authorization: `Bearer ${authToken}` },
+                    },
+                  );
                   dispatch(replaceSocialState(sync.data));
                 } catch {
                   // keep current state on error
@@ -450,9 +460,12 @@ function MainLayout() {
             headers: { Authorization: `Bearer ${authToken}` },
           });
         } catch {
-          response = await apiRequest<{ data: SocialState }>("/api/social/state", {
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
+          response = await apiRequest<{ data: SocialState }>(
+            "/api/social/state",
+            {
+              headers: { Authorization: `Bearer ${authToken}` },
+            },
+          );
         }
         dispatch(replaceSocialState(response.data));
       } catch {
@@ -895,12 +908,19 @@ function MainLayout() {
                         onClick={async () => {
                           if (!authToken) return;
                           try {
-                            await apiRequest(`/api/social/follow-requests/${req.id}`, {
-                              method: "PATCH",
-                              headers: { Authorization: `Bearer ${authToken}` },
-                              body: JSON.stringify({ action: "accept" }),
-                            });
-                            dispatch(acceptFollowRequest({ requestId: req.id }));
+                            await apiRequest(
+                              `/api/social/follow-requests/${req.id}`,
+                              {
+                                method: "PATCH",
+                                headers: {
+                                  Authorization: `Bearer ${authToken}`,
+                                },
+                                body: JSON.stringify({ action: "accept" }),
+                              },
+                            );
+                            dispatch(
+                              acceptFollowRequest({ requestId: req.id }),
+                            );
                           } catch {
                             // keep current state on error
                           }
@@ -916,12 +936,19 @@ function MainLayout() {
                         onClick={async () => {
                           if (!authToken) return;
                           try {
-                            await apiRequest(`/api/social/follow-requests/${req.id}`, {
-                              method: "PATCH",
-                              headers: { Authorization: `Bearer ${authToken}` },
-                              body: JSON.stringify({ action: "reject" }),
-                            });
-                            dispatch(rejectFollowRequest({ requestId: req.id }));
+                            await apiRequest(
+                              `/api/social/follow-requests/${req.id}`,
+                              {
+                                method: "PATCH",
+                                headers: {
+                                  Authorization: `Bearer ${authToken}`,
+                                },
+                                body: JSON.stringify({ action: "reject" }),
+                              },
+                            );
+                            dispatch(
+                              rejectFollowRequest({ requestId: req.id }),
+                            );
                           } catch {
                             // keep current state on error
                           }

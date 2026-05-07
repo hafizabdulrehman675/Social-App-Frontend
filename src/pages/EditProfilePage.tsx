@@ -1,11 +1,12 @@
 import { Link, useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ApiError, apiRequest } from "@/lib/api";
+import { API_BASE_URL, ApiError, apiRequest } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { updateAuthenticatedUser } from "@/features/auth/redux/authSlice";
 import { syncPostAuthorUsername } from "@/features/posts/redux/postsSlice";
@@ -54,6 +55,19 @@ function EditProfilePage() {
   const dispatch = useAppDispatch();
   const authUser = useAppSelector((s) => s.auth.user);
   const authToken = useAppSelector((s) => s.auth.token);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+
+  const currentAvatarUrl = useMemo(() => {
+    const fromUpload =
+      avatarPreviewUrl ??
+      authUser?.avatarUrl ??
+      "https://i.pravatar.cc/100?u=fallback";
+    if (fromUpload.startsWith("/uploads/")) {
+      return `${API_BASE_URL}${fromUpload}`;
+    }
+    return fromUpload;
+  }, [avatarPreviewUrl, authUser?.avatarUrl]);
 
   const formik = useFormik({
     enableReinitialize: true,
@@ -101,6 +115,24 @@ function EditProfilePage() {
           }),
         });
 
+        let nextAvatarUrl = authUser.avatarUrl;
+        if (avatarFile) {
+          const formData = new FormData();
+          formData.append("avatar", avatarFile);
+          const avatarResponse = await apiRequest<{
+            data: {
+              user: {
+                avatarUrl: string | null;
+              };
+            };
+          }>("/api/users/me/avatar", {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${authToken}` },
+            body: formData,
+          });
+          nextAvatarUrl = avatarResponse.data.user.avatarUrl;
+        }
+
         dispatch(
           updateUserProfile({
             userId: authUser.id,
@@ -108,6 +140,7 @@ function EditProfilePage() {
             username: u,
             email: e,
             newPassword: newPw,
+            avatarUrl: nextAvatarUrl,
           }),
         );
 
@@ -117,7 +150,15 @@ function EditProfilePage() {
               userId: authUser.id,
               fromUsername: authUser.username,
               toUsername: u,
-              avatarUrl: authUser.avatarUrl,
+              avatarUrl: nextAvatarUrl ?? undefined,
+            }),
+          );
+        } else if (nextAvatarUrl !== authUser.avatarUrl) {
+          dispatch(
+            syncPostAuthorUsername({
+              userId: authUser.id,
+              toUsername: u,
+              avatarUrl: nextAvatarUrl ?? undefined,
             }),
           );
         }
@@ -127,6 +168,7 @@ function EditProfilePage() {
             fullName: values.fullName.trim(),
             username: u,
             email: e,
+            avatarUrl: nextAvatarUrl,
           }),
         );
 
@@ -187,6 +229,34 @@ function EditProfilePage() {
       </div>
 
       <form className="space-y-5" onSubmit={formik.handleSubmit} noValidate>
+        <div className="flex items-center gap-4 rounded-lg border border-zinc-200 p-4">
+          <img
+            src={currentAvatarUrl}
+            alt="Profile avatar preview"
+            className="h-16 w-16 rounded-full object-cover"
+          />
+          <div className="space-y-2">
+            <Label htmlFor="edit-avatar">Profile photo</Label>
+            <Input
+              id="edit-avatar"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                setAvatarFile(file);
+                if (!file) {
+                  setAvatarPreviewUrl(null);
+                  return;
+                }
+                setAvatarPreviewUrl(URL.createObjectURL(file));
+              }}
+            />
+            <p className="text-xs text-zinc-500">
+              JPG, PNG, WEBP up to 5MB.
+            </p>
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="edit-fullName">Full name</Label>
           <Input

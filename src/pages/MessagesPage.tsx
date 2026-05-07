@@ -23,7 +23,11 @@ import {
   upsertMessagesFromServer,
   upsertThreadFromServer,
 } from "@/features/messages/redux/messagesSlice";
-import type { MessageEntity, ThreadEntity, ThreadPeer } from "@/features/messages/types";
+import type {
+  MessageEntity,
+  ThreadEntity,
+  ThreadPeer,
+} from "@/features/messages/types";
 import { apiRequest } from "@/lib/api";
 import { getSocket } from "@/lib/socket";
 
@@ -561,8 +565,11 @@ function MessagesPage() {
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-          <h2 className="text-[18px] font-bold text-zinc-900">
-            {authUser?.username ?? "Messages"}
+          <h2
+            style={{ color: "black" }}
+            className="text-[22px] font-bold text-zinc-900"
+          >
+            {"Messages"}
           </h2>
           <button
             type="button"
