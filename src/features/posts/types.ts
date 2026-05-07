@@ -7,6 +7,7 @@ export type Story = {
 export type PostComment = {
   id: string;
   parentId: string | null;
+  authorId?: string;
   username: string;
   avatarUrl: string;
   text: string;

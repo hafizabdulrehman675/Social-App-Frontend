@@ -129,6 +129,7 @@ const postsSlice = createSlice({
         postId: string;
         text: string;
         parentId: string | null;
+        authorId?: string;
         username: string;
         avatarUrl: string;
       }>,
@@ -139,6 +140,7 @@ const postsSlice = createSlice({
       post.comments.push({
         id,
         parentId: action.payload.parentId,
+        authorId: action.payload.authorId,
         username: action.payload.username,
         avatarUrl: action.payload.avatarUrl,
         text: action.payload.text.trim(),
@@ -153,8 +155,10 @@ const postsSlice = createSlice({
         id: string;
         text: string;
         parentId: string | null;
+        authorId?: string;
         username: string;
         avatarUrl: string | null;
+        postedAtLabel?: string;
       }>,
     ) {
       const post = state.postsById[action.payload.postId];
@@ -163,10 +167,11 @@ const postsSlice = createSlice({
         id: action.payload.id,
         text: action.payload.text,
         parentId: action.payload.parentId,
+        authorId: action.payload.authorId,
         username: action.payload.username,
         avatarUrl:
           action.payload.avatarUrl ?? "https://i.pravatar.cc/100?u=fallback",
-        postedAtLabel: "JUST NOW",
+        postedAtLabel: action.payload.postedAtLabel ?? "JUST NOW",
       });
       post.commentsCount = post.comments.length;
     },
@@ -178,6 +183,28 @@ const postsSlice = createSlice({
       if (!post) return;
       post.comments = action.payload.comments;
       post.commentsCount = action.payload.comments.length;
+    },
+    removeComment(
+      state,
+      action: PayloadAction<{ postId: string; commentId: string }>,
+    ) {
+      const post = state.postsById[action.payload.postId];
+      if (!post) return;
+
+      const toDelete = new Set<string>([action.payload.commentId]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const comment of post.comments) {
+          if (comment.parentId && toDelete.has(comment.parentId) && !toDelete.has(comment.id)) {
+            toDelete.add(comment.id);
+            changed = true;
+          }
+        }
+      }
+
+      post.comments = post.comments.filter((comment) => !toDelete.has(comment.id));
+      post.commentsCount = post.comments.length;
     },
     syncPostAuthorUsername(
       state,
@@ -215,6 +242,7 @@ export const {
   addComment,
   addCommentFromServer,
   setPostComments,
+  removeComment,
   syncPostAuthorUsername,
 } = postsSlice.actions;
 export default postsSlice.reducer;

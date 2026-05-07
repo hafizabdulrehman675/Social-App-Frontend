@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Bookmark,
@@ -19,6 +19,8 @@ import { apiRequest } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import {
   addCommentFromServer,
+  removePost,
+  removeComment,
   replaceFeedPosts,
   setPostComments,
   updatePostInteraction,
@@ -49,9 +51,11 @@ type BackendPost = {
   likesCount: number;
   caption: string;
   commentsCount: number;
+  createdAt?: string;
   comments: Array<{
     id: string | number;
     parentId: string | number | null;
+    createdAt?: string;
     username: string;
     avatarUrl: string | null;
     text: string;
@@ -59,6 +63,27 @@ type BackendPost = {
   isLiked: boolean;
   isSaved: boolean;
 };
+
+function formatRelativeTime(input?: string): string {
+  if (!input) return "just now";
+  const date = new Date(input);
+  if (Number.isNaN(date.getTime())) return "just now";
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs <= 0) return "just now";
+  const minutes = Math.floor(diffMs / (1000 * 60));
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  const years = Math.floor(days / 365);
+  return `${years}y ago`;
+}
 
 function mapBackendPostToFeedPost(post: BackendPost): FeedPost {
   return {
@@ -77,9 +102,9 @@ function mapBackendPostToFeedPost(post: BackendPost): FeedPost {
       username: c.username,
       avatarUrl: c.avatarUrl ?? "https://i.pravatar.cc/100?u=fallback",
       text: c.text,
-      postedAtLabel: "JUST NOW",
+      postedAtLabel: formatRelativeTime(c.createdAt),
     })),
-    postedAtLabel: "JUST NOW",
+    postedAtLabel: formatRelativeTime(post.createdAt),
     isLiked: post.isLiked,
     isSaved: post.isSaved,
   };
@@ -89,6 +114,8 @@ type BackendComment = {
   id: string | number;
   text: string;
   parentId?: string | number | null;
+  authorId?: string | number;
+  createdAt?: string;
   username: string;
   avatarUrl: string | null;
 };
@@ -176,11 +203,17 @@ function CommentTree({
   parentId,
   depth,
   onReply,
+  onDelete,
+  canDelete,
+  deletingCommentIds,
 }: {
   comments: PostComment[];
   parentId: string | null;
   depth: number;
   onReply: (c: PostComment) => void;
+  onDelete: (c: PostComment) => void;
+  canDelete: (c: PostComment) => boolean;
+  deletingCommentIds: Record<string, boolean>;
 }) {
   const nodes = comments.filter((c) => c.parentId === parentId);
   if (nodes.length === 0) return null;
@@ -213,11 +246,29 @@ function CommentTree({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="h-auto min-h-0 p-0 font-normal text-[11px] text-zinc-500 hover:bg-transparent hover:text-zinc-500 dark:hover:bg-transparent"
+                  className="h-auto min-h-0 cursor-pointer p-0 font-normal text-[11px] text-zinc-500 hover:bg-transparent hover:text-zinc-500 dark:hover:bg-transparent"
                   onClick={() => onReply(c)}
                 >
                   Reply
                 </Button>
+                {canDelete(c) ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto min-h-0 cursor-pointer p-0 font-semibold text-[11px] text-red-600 hover:bg-transparent hover:text-red-700 dark:hover:bg-transparent"
+                    disabled={Boolean(deletingCommentIds[c.id])}
+                    onClick={() => onDelete(c)}
+                  >
+                    {deletingCommentIds[c.id] ? (
+                      <>
+                        <span className="mr-1 inline-block size-2.5 animate-spin rounded-full border border-red-300 border-t-red-600" />
+                        <span className="text-red-700">Deleting...</span>
+                      </>
+                    ) : (
+                      "Delete"
+                    )}
+                  </Button>
+                ) : null}
               </div>
             </div>
           </div>
@@ -226,6 +277,9 @@ function CommentTree({
             parentId={c.id}
             depth={depth + 1}
             onReply={onReply}
+            onDelete={onDelete}
+            canDelete={canDelete}
+            deletingCommentIds={deletingCommentIds}
           />
           {depth === 0 && index < nodes.length - 1 ? (
             <Separator className="my-4 bg-zinc-200 dark:bg-zinc-800" />
@@ -242,6 +296,8 @@ type PostCardProps = {
   onToggleLike: (postId: string) => Promise<void>;
   onToggleSave: (postId: string) => Promise<void>;
   onLoadComments: (postId: string) => Promise<void>;
+  onDeletePost: (postId: string) => Promise<void>;
+  isDeletingPost: boolean;
 };
 
 function PostCard({
@@ -249,22 +305,52 @@ function PostCard({
   onToggleLike,
   onToggleSave,
   onLoadComments,
+  onDeletePost,
+  isDeletingPost,
 }: PostCardProps) {
   const dispatch = useAppDispatch();
+  const authUser = useAppSelector((s) => s.auth.user);
   const authToken = useAppSelector((s) => s.auth.token);
   const [commentInput, setCommentInput] = useState<string>("");
   const [replyTo, setReplyTo] = useState<PostComment | null>(null);
   const [commentsVisible, setCommentsVisible] = useState(true);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  const [isPostingComment, setIsPostingComment] = useState(false);
+  const [deletingCommentIds, setDeletingCommentIds] = useState<
+    Record<string, boolean>
+  >({});
+  const optionsRef = useRef<HTMLDivElement | null>(null);
 
   const comments = post.comments ?? [];
   const hasComments = comments.length > 0;
+  const isPostOwner = Boolean(
+    authUser &&
+      (String(authUser.id) === String(post.authorId) ||
+        authUser.username === post.username),
+  );
 
   useEffect(() => {
     setIsImageLoaded(false);
     setHasImageError(false);
   }, [post.imageUrl]);
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (!isOptionsOpen) return;
+      const target = event.target as Node | null;
+      if (
+        optionsRef.current &&
+        target &&
+        !optionsRef.current.contains(target)
+      ) {
+        setIsOptionsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [isOptionsOpen]);
 
   function handleDoubleTap() {
     if (!post.isLiked) {
@@ -274,7 +360,8 @@ function PostCard({
 
   async function handlePostComment() {
     const text = commentInput.trim();
-    if (!text || !authToken) return;
+    if (!text || !authToken || isPostingComment) return;
+    setIsPostingComment(true);
 
     try {
       const response = await apiRequest<{
@@ -283,6 +370,8 @@ function PostCard({
             id: string | number;
             text: string;
             parentId: string | number | null;
+            authorId: string | number;
+            createdAt?: string;
             username: string;
             avatarUrl: string | null;
           };
@@ -304,12 +393,15 @@ function PostCard({
           parentId: response.data.comment.parentId
             ? String(response.data.comment.parentId)
             : null,
+          authorId: String(response.data.comment.authorId),
           username: response.data.comment.username,
           avatarUrl: response.data.comment.avatarUrl ?? null,
         }),
       );
     } catch {
       return;
+    } finally {
+      setIsPostingComment(false);
     }
 
     setCommentInput("");
@@ -322,6 +414,27 @@ function PostCard({
     setCommentsVisible(nextVisible);
     if (nextVisible) {
       await onLoadComments(post.id);
+    }
+  }
+
+  async function handleDeleteComment(comment: PostComment) {
+    if (!authToken) return;
+    if (deletingCommentIds[comment.id]) return;
+    setDeletingCommentIds((prev) => ({ ...prev, [comment.id]: true }));
+    try {
+      await apiRequest(`/api/posts/${post.id}/comments/${comment.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      dispatch(removeComment({ postId: post.id, commentId: comment.id }));
+    } catch {
+      // Keep current comments if delete fails.
+    } finally {
+      setDeletingCommentIds((prev) => {
+        const next = { ...prev };
+        delete next[comment.id];
+        return next;
+      });
     }
   }
 
@@ -360,15 +473,40 @@ function PostCard({
           </div>
         </div>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Post options"
-          className="cursor-pointer rounded-full text-zinc-700 hover:bg-transparent"
-        >
-          <MoreHorizontal className="size-5" strokeWidth={1.8} />
-        </Button>
+        {isPostOwner ? (
+          <div ref={optionsRef} className="relative">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Post options"
+              className="cursor-pointer rounded-full text-zinc-700 hover:bg-transparent"
+              onClick={() => setIsOptionsOpen((prev) => !prev)}
+            >
+              <MoreHorizontal className="size-5" strokeWidth={1.8} />
+            </Button>
+            {isOptionsOpen ? (
+              <div className="absolute right-0 top-7 z-20 w-44 rounded-xl border border-zinc-200/80 bg-white p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.12)]">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-9 w-full cursor-pointer justify-start rounded-lg px-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
+                  onClick={() => void onDeletePost(post.id)}
+                  disabled={isDeletingPost}
+                >
+                  {isDeletingPost ? (
+                    <>
+                      <span className="mr-2 inline-block size-3 animate-spin rounded-full border-2 border-red-200 border-t-red-600" />
+                      <span className="text-red-800">Deleting...</span>
+                    </>
+                  ) : (
+                    "Delete Post"
+                  )}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {/* ── Post image (responsive + double-tap) ── */}
@@ -508,6 +646,16 @@ function PostCard({
                 parentId={null}
                 depth={0}
                 onReply={setReplyTo}
+                onDelete={(comment) => void handleDeleteComment(comment)}
+                canDelete={(comment) =>
+                  Boolean(
+                    authUser &&
+                    (comment.authorId
+                      ? comment.authorId === authUser.id
+                      : comment.username === authUser.username),
+                  )
+                }
+                deletingCommentIds={deletingCommentIds}
               />
             </CardContent>
           </Card>
@@ -526,7 +674,7 @@ function PostCard({
               <Button
                 type="button"
                 variant="ghost"
-                className="h-auto min-h-0 p-0 text-[12px] font-normal text-zinc-500 hover:bg-transparent hover:text-zinc-500 dark:hover:bg-transparent"
+                className="h-auto min-h-0 cursor-pointer p-0 text-[12px] font-normal text-zinc-500 hover:bg-transparent hover:text-zinc-500 dark:hover:bg-transparent"
                 onClick={() => setReplyTo(null)}
               >
                 Cancel
@@ -552,7 +700,7 @@ function PostCard({
               variant="ghost"
               size="icon-sm"
               aria-label="Emoji"
-              className="size-8 shrink-0 rounded-full text-zinc-400 hover:bg-transparent hover:text-zinc-400 dark:hover:bg-transparent"
+              className="size-8 shrink-0 cursor-pointer rounded-full text-zinc-400 hover:bg-transparent hover:text-zinc-400 dark:hover:bg-transparent"
             >
               <Smile className="size-4.5" strokeWidth={1.8} />
             </Button>
@@ -561,9 +709,17 @@ function PostCard({
                 type="button"
                 variant="ghost"
                 onClick={handlePostComment}
-                className="h-8 shrink-0 rounded-full px-3 text-[13px] font-semibold text-[#0095f6] hover:bg-transparent hover:text-[#0095f6] dark:hover:bg-transparent"
+                disabled={isPostingComment}
+                className="h-8 shrink-0 cursor-pointer rounded-full px-3 text-[13px] font-semibold text-sky-600 hover:bg-transparent hover:text-sky-700 disabled:opacity-100 dark:hover:bg-transparent"
               >
-                Post
+                {isPostingComment ? (
+                  <>
+                    <span className="mr-1 inline-block size-3 animate-spin rounded-full border-2 border-sky-200 border-t-sky-600" />
+                    <span className="text-sky-700">Posting...</span>
+                  </>
+                ) : (
+                  "Post"
+                )}
               </Button>
             ) : null}
           </div>
@@ -582,6 +738,7 @@ function PostCard({
 function FeedPage() {
   const dispatch = useAppDispatch();
   const [isLoadingFeed, setIsLoadingFeed] = useState(false);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 
   const allPosts = useAppSelector((state) =>
     state.posts.feedPostIds
@@ -591,9 +748,7 @@ function FeedPage() {
 
   const authUser = useAppSelector((s) => s.auth.user);
   const authToken = useAppSelector((s) => s.auth.token);
-  const followingByUserId = useAppSelector(
-    (s) => s.social.followingByUserId,
-  );
+  const followingByUserId = useAppSelector((s) => s.social.followingByUserId);
 
   useEffect(() => {
     async function loadFeed() {
@@ -626,8 +781,7 @@ function FeedPage() {
     const following = followingByUserId[authUser.id] ?? [];
     if (following.length === 0) return allPosts;
     return allPosts.filter(
-      (p) =>
-        p.authorId === authUser.id || following.includes(p.authorId),
+      (p) => p.authorId === authUser.id || following.includes(p.authorId),
     );
   }, [allPosts, authUser, followingByUserId]);
 
@@ -684,7 +838,9 @@ function FeedPage() {
           method: "DELETE",
           headers: { Authorization: `Bearer ${authToken}` },
         });
-        dispatch(updatePostInteraction({ postId, isSaved: response.data.isSaved }));
+        dispatch(
+          updatePostInteraction({ postId, isSaved: response.data.isSaved }),
+        );
       } else {
         const response = await apiRequest<{
           data: { isSaved: boolean };
@@ -692,7 +848,9 @@ function FeedPage() {
           method: "POST",
           headers: { Authorization: `Bearer ${authToken}` },
         });
-        dispatch(updatePostInteraction({ postId, isSaved: response.data.isSaved }));
+        dispatch(
+          updatePostInteraction({ postId, isSaved: response.data.isSaved }),
+        );
       }
     } catch {
       // Ignore transient failure; UI stays consistent with store.
@@ -725,12 +883,29 @@ function FeedPage() {
         username: c.username,
         avatarUrl: c.avatarUrl ?? "https://i.pravatar.cc/100?u=fallback",
         text: c.text,
-        postedAtLabel: "JUST NOW",
+        postedAtLabel: formatRelativeTime(c.createdAt),
+        authorId: c.authorId ? String(c.authorId) : undefined,
       }));
 
       dispatch(setPostComments({ postId, comments: merged }));
     } catch {
       // Keep existing comments state if loading fails.
+    }
+  }
+
+  async function handleDeletePost(postId: string) {
+    if (!authToken || deletingPostId) return;
+    setDeletingPostId(postId);
+    try {
+      await apiRequest(`/api/posts/${postId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      dispatch(removePost({ postId }));
+    } catch {
+      // Keep current posts state if delete fails.
+    } finally {
+      setDeletingPostId((current) => (current === postId ? null : current));
     }
   }
 
@@ -763,20 +938,20 @@ function FeedPage() {
         <div>
           {posts.length === 0 ? (
             isLoadingFeed ? null : (
-            <div className="flex flex-col items-center justify-center py-24 text-center px-6">
-              <div
-                className="mb-5 flex size-20 items-center justify-center rounded-full"
-                style={{ background: IG_GRADIENT }}
-              >
-                <Heart size={36} className="fill-white stroke-none" />
+              <div className="flex flex-col items-center justify-center py-24 text-center px-6">
+                <div
+                  className="mb-5 flex size-20 items-center justify-center rounded-full"
+                  style={{ background: IG_GRADIENT }}
+                >
+                  <Heart size={36} className="fill-white stroke-none" />
+                </div>
+                <p className="text-xl font-semibold text-zinc-900">
+                  No posts yet
+                </p>
+                <p className="mt-1.5 text-sm text-zinc-500">
+                  Follow people to see their photos and videos here.
+                </p>
               </div>
-              <p className="text-xl font-semibold text-zinc-900">
-                No posts yet
-              </p>
-              <p className="mt-1.5 text-sm text-zinc-500">
-                Follow people to see their photos and videos here.
-              </p>
-            </div>
             )
           ) : (
             posts.map((post) => (
@@ -786,6 +961,8 @@ function FeedPage() {
                 onToggleLike={handleToggleLike}
                 onToggleSave={handleToggleSave}
                 onLoadComments={handleLoadComments}
+                onDeletePost={handleDeletePost}
+                isDeletingPost={deletingPostId === post.id}
               />
             ))
           )}

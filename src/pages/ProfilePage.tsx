@@ -138,6 +138,13 @@ function PostDialog({
 }
 
 type ProfileTab = "posts" | "reels" | "saved" | "tagged";
+type SocialListType = "followers" | "following";
+type SocialListUser = {
+  id: string | number;
+  username: string;
+  fullName: string;
+  avatarUrl: string | null;
+};
 
 function ProfileEmptyState({
   icon: Icon,
@@ -226,6 +233,11 @@ function ProfilePage() {
   const [tab, setTab] = useState<ProfileTab>("posts");
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [isDeletingPost, setIsDeletingPost] = useState(false);
+  const [activeSocialList, setActiveSocialList] = useState<SocialListType | null>(
+    null,
+  );
+  const [socialListUsers, setSocialListUsers] = useState<SocialListUser[]>([]);
+  const [isLoadingSocialList, setIsLoadingSocialList] = useState(false);
 
   useEffect(() => {
     setTab("posts");
@@ -445,6 +457,25 @@ function ProfilePage() {
         ? "Requested"
         : "Follow";
 
+  async function openSocialList(type: SocialListType) {
+    if (!profileUser) return;
+    setActiveSocialList(type);
+    setIsLoadingSocialList(true);
+    try {
+      const response = await apiRequest<{
+        data: {
+          followers?: SocialListUser[];
+          following?: SocialListUser[];
+        };
+      }>(`/api/users/${encodeURIComponent(profileUser.username)}/${type}`);
+      setSocialListUsers(response.data[type] || []);
+    } catch {
+      setSocialListUsers([]);
+    } finally {
+      setIsLoadingSocialList(false);
+    }
+  }
+
   return (
     <>
       <style>{`@import url('https://fonts.cdnfonts.com/css/billabong');`}</style>
@@ -545,6 +576,10 @@ function ProfilePage() {
                   type="button"
                   variant="ghost"
                   className={`${profileBtnGhostRow} justify-center text-center text-zinc-900`}
+                  onClick={() => {
+                    if (label === "followers") void openSocialList("followers");
+                    if (label === "following") void openSocialList("following");
+                  }}
                 >
                   <span className="text-[15px] font-bold">{value}</span>
                   <span className="ml-1 text-[15px] font-normal">{label}</span>
@@ -578,12 +613,21 @@ function ProfilePage() {
             { value: stats.followers.toLocaleString(), label: "Followers" },
             { value: stats.following, label: "Following" },
           ].map(({ value, label }) => (
-            <div key={label} className="flex flex-col items-center">
+            <Button
+              key={label}
+              type="button"
+              variant="ghost"
+              className="flex h-auto min-h-0 flex-col items-center p-0 hover:bg-transparent"
+              onClick={() => {
+                if (label === "Followers") void openSocialList("followers");
+                if (label === "Following") void openSocialList("following");
+              }}
+            >
               <span className="text-[15px] font-bold leading-snug">
                 {value}
               </span>
               <span className="text-[12px] text-zinc-500">{label}</span>
-            </div>
+            </Button>
           ))}
         </div>
 
@@ -694,6 +738,56 @@ function ProfilePage() {
         onDelete={handleDeletePost}
         onClose={() => setSelectedPost(null)}
       />
+
+      <Dialog
+        open={activeSocialList !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActiveSocialList(null);
+            setSocialListUsers([]);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle style={{ color: "black" }}>
+              {activeSocialList === "followers" ? "Followers" : "Following"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {isLoadingSocialList ? (
+            <p className="py-6 text-center text-sm text-zinc-500">Loading...</p>
+          ) : socialListUsers.length === 0 ? (
+            <p className="py-6 text-center text-sm text-zinc-500">
+              No users found.
+            </p>
+          ) : (
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+              {socialListUsers.map((u) => (
+                <Link
+                  key={String(u.id)}
+                  to={`/profile/${encodeURIComponent(u.username)}`}
+                  className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-zinc-50"
+                  onClick={() => setActiveSocialList(null)}
+                >
+                  <Avatar className="size-9">
+                    <AvatarImage src={u.avatarUrl ?? undefined} alt={u.username} />
+                    <AvatarFallback className="text-xs">
+                      {u.username.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-zinc-900">
+                      {u.username}
+                    </p>
+                    <p className="truncate text-xs text-zinc-500">{u.fullName}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
