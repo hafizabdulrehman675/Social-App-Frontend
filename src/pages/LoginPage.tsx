@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,13 @@ const LoginSchema = Yup.object({
 function LoginPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotIdentity, setForgotIdentity] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
+  const [forgotError, setForgotError] = useState("");
+  const [forgotSuccess, setForgotSuccess] = useState("");
+  const [isSendingForgot, setIsSendingForgot] = useState(false);
 
   const formik = useFormik({
     initialValues: { identity: "", password: "" },
@@ -104,6 +112,56 @@ function LoginPage() {
       ? formik.errors[name]
       : undefined;
 
+  async function handleForgotPasswordSubmit() {
+    const identity = forgotIdentity.trim();
+    const newPassword = forgotNewPassword;
+    setForgotError("");
+    setForgotSuccess("");
+    if (!identity) {
+      setForgotError("Enter your username or email.");
+      return;
+    }
+    if (!newPassword) {
+      setForgotError("Enter your new password.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setForgotError("Password must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== forgotConfirmPassword) {
+      setForgotError("Passwords do not match.");
+      return;
+    }
+
+    setIsSendingForgot(true);
+    try {
+      const response = await apiRequest<{ message: string }>(
+        "/api/auth/forgot-password",
+        {
+          method: "POST",
+          body: JSON.stringify({ identity, newPassword }),
+        },
+      );
+      setForgotSuccess(response.message);
+      setTimeout(() => {
+        setShowForgotPassword(false);
+        setForgotSuccess("");
+      }, 900);
+      setForgotIdentity("");
+      setForgotNewPassword("");
+      setForgotConfirmPassword("");
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setForgotError(error.message || "Unable to send reset request.");
+      } else {
+        setForgotError("Unable to send reset request.");
+      }
+    } finally {
+      setIsSendingForgot(false);
+    }
+  }
+
   return (
     <div className="flex items-start justify-center bg-white border border-zinc-200 lg:border-l-0 rounded-2xl lg:rounded-l-none lg:rounded-r-2xl px-8 py-4 md:col-span-3">
       <div className="w-full space-y-6">
@@ -121,69 +179,148 @@ function LoginPage() {
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Grand+Hotel&display=swap');`}</style>
 
         {/* ── Form fields ─────────────────────────────────────────── */}
-        <div className="space-y-3">
-          {/* Identity */}
-          <div>
-            <Input
-              id="login-identity"
-              placeholder="Mobile number, username or email"
-              className={`bg-zinc-50 border-zinc-300 text-sm h-10 ${
-                fieldError("identity")
-                  ? "border-red-400 focus-visible:ring-red-300"
-                  : ""
-              }`}
-              autoComplete="username"
-              value={formik.values.identity}
-              onChange={formik.handleChange("identity")}
-              onBlur={formik.handleBlur("identity")}
-            />
-            {fieldError("identity") && (
-              <p className="mt-1 text-xs pt-1 text-red-500">
-                {fieldError("identity")}
-              </p>
-            )}
+        {showForgotPassword ? (
+          <div className="space-y-3">
+            <div>
+              <Input
+                id="forgot-identity"
+                placeholder="Username or email"
+                className={`bg-zinc-50 border-zinc-300 text-sm h-10 ${
+                  forgotError ? "border-red-400 focus-visible:ring-red-300" : ""
+                }`}
+                autoComplete="username"
+                value={forgotIdentity}
+                onChange={(e) => setForgotIdentity(e.target.value)}
+              />
+            </div>
+            <div>
+              <Input
+                id="forgot-new-password"
+                type="password"
+                placeholder="New password"
+                className={`bg-zinc-50 border-zinc-300 text-sm h-10 ${
+                  forgotError ? "border-red-400 focus-visible:ring-red-300" : ""
+                }`}
+                autoComplete="new-password"
+                value={forgotNewPassword}
+                onChange={(e) => setForgotNewPassword(e.target.value)}
+              />
+            </div>
+            <div>
+              <Input
+                id="forgot-confirm-password"
+                type="password"
+                placeholder="Confirm new password"
+                className={`bg-zinc-50 border-zinc-300 text-sm h-10 ${
+                  forgotError ? "border-red-400 focus-visible:ring-red-300" : ""
+                }`}
+                autoComplete="new-password"
+                value={forgotConfirmPassword}
+                onChange={(e) => setForgotConfirmPassword(e.target.value)}
+              />
+              {forgotError ? (
+                <p className="mt-1 text-xs pt-1 text-red-500">{forgotError}</p>
+              ) : null}
+              {forgotSuccess ? (
+                <p className="mt-1 text-xs pt-1 text-green-600">{forgotSuccess}</p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              className="w-full h-9 text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg disabled:opacity-60 cursor-pointer"
+              onClick={() => void handleForgotPasswordSubmit()}
+              disabled={
+                isSendingForgot ||
+                !forgotIdentity.trim() ||
+                !forgotNewPassword ||
+                !forgotConfirmPassword
+              }
+            >
+              {isSendingForgot ? "Updating..." : "Update password"}
+            </Button>
+            <p className="text-center text-xs text-zinc-500">
+              <button
+                type="button"
+                className="cursor-pointer hover:underline"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotError("");
+                  setForgotSuccess("");
+                }}
+              >
+                Back to login
+              </button>
+            </p>
           </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Identity */}
+            <div>
+              <Input
+                id="login-identity"
+                placeholder="Mobile number, username or email"
+                className={`bg-zinc-50 border-zinc-300 text-sm h-10 ${
+                  fieldError("identity")
+                    ? "border-red-400 focus-visible:ring-red-300"
+                    : ""
+                }`}
+                autoComplete="username"
+                value={formik.values.identity}
+                onChange={formik.handleChange("identity")}
+                onBlur={formik.handleBlur("identity")}
+              />
+              {fieldError("identity") && (
+                <p className="mt-1 text-xs pt-1 text-red-500">
+                  {fieldError("identity")}
+                </p>
+              )}
+            </div>
 
-          {/* Password */}
-          <div>
-            <Input
-              id="login-password"
-              type="password"
-              placeholder="Password"
-              className={`bg-zinc-50 border-zinc-300 text-sm h-10 ${
-                fieldError("password")
-                  ? "border-red-400 focus-visible:ring-red-300"
-                  : ""
-              }`}
-              autoComplete="current-password"
-              value={formik.values.password}
-              onChange={formik.handleChange("password")}
-              onBlur={formik.handleBlur("password")}
-            />
-            {fieldError("password") && (
-              <p className="mt-1 pt-1 text-xs text-red-500">
-                {fieldError("password")}
-              </p>
-            )}
+            {/* Password */}
+            <div>
+              <Input
+                id="login-password"
+                type="password"
+                placeholder="Password"
+                className={`bg-zinc-50 border-zinc-300 text-sm h-10 ${
+                  fieldError("password")
+                    ? "border-red-400 focus-visible:ring-red-300"
+                    : ""
+                }`}
+                autoComplete="current-password"
+                value={formik.values.password}
+                onChange={formik.handleChange("password")}
+                onBlur={formik.handleBlur("password")}
+              />
+              {fieldError("password") && (
+                <p className="mt-1 pt-1 text-xs text-red-500">
+                  {fieldError("password")}
+                </p>
+              )}
+            </div>
+
+            {/* Submit */}
+            <Button
+              type="button"
+              className="w-full h-9 text-sm font-semibold bg-blue-400 hover:bg-blue-500 text-white rounded-lg disabled:opacity-60 cursor-pointer"
+              onClick={() => formik.handleSubmit()}
+              disabled={formik.isSubmitting || !formik.dirty}
+            >
+              {formik.isSubmitting ? "Logging in…" : "Log in"}
+            </Button>
+
+            {/* Forgot password */}
+            <p className="text-center text-xs text-zinc-500">
+              <button
+                type="button"
+                className="cursor-pointer hover:underline"
+                onClick={() => setShowForgotPassword(true)}
+              >
+                Forgot password?
+              </button>
+            </p>
           </div>
-
-          {/* Submit */}
-          <Button
-            type="button"
-            className="w-full h-9 text-sm font-semibold bg-blue-400 hover:bg-blue-500 text-white rounded-lg disabled:opacity-60 cursor-pointer"
-            onClick={() => formik.handleSubmit()}
-            disabled={formik.isSubmitting || !formik.dirty}
-          >
-            {formik.isSubmitting ? "Logging in…" : "Log in"}
-          </Button>
-
-          {/* Forgot password */}
-          <p className="text-center text-xs text-zinc-500">
-            <span className="cursor-pointer hover:underline">
-              Forgot password?
-            </span>
-          </p>
-        </div>
+        )}
 
         {/* ── Divider ─────────────────────────────────────────────── */}
         <div className="flex items-center gap-3">

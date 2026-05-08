@@ -746,9 +746,7 @@ function FeedPage() {
       .filter((post): post is FeedPost => Boolean(post)),
   );
 
-  const authUser = useAppSelector((s) => s.auth.user);
   const authToken = useAppSelector((s) => s.auth.token);
-  const followingByUserId = useAppSelector((s) => s.social.followingByUserId);
 
   useEffect(() => {
     async function loadFeed() {
@@ -777,13 +775,8 @@ function FeedPage() {
   }, [authToken, dispatch]);
 
   const posts = useMemo(() => {
-    if (!authUser) return allPosts;
-    const following = followingByUserId[authUser.id] ?? [];
-    if (following.length === 0) return allPosts;
-    return allPosts.filter(
-      (p) => p.authorId === authUser.id || following.includes(p.authorId),
-    );
-  }, [allPosts, authUser, followingByUserId]);
+    return allPosts;
+  }, [allPosts]);
 
   async function handleToggleLike(postId: string) {
     if (!authToken) return;

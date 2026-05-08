@@ -370,6 +370,7 @@ function MainLayout() {
   const allUserIds = useAppSelector((s) => s.users.allUserIds);
   const activeModal = useAppSelector((s) => s.ui.activeModal);
   const social = useAppSelector((s) => s.social);
+  const threadsById = useAppSelector((s) => s.messages.threadsById);
   const location = useLocation();
   const matches = useMatches();
   const isCreatePage = location.pathname === "/create";
@@ -387,6 +388,12 @@ function MainLayout() {
 
   // Badge count mirrors the Follow Requests modal (incoming requests only).
   const followActivityBadgeCount = incomingFollowRequests.length;
+  const messagesBadgeCount = useMemo(() => {
+    if (!authUser) return 0;
+    return Object.values(threadsById).reduce((total, thread) => {
+      return total + (thread.unreadCountByUserId?.[authUser.id] ?? 0);
+    }, 0);
+  }, [authUser, threadsById]);
 
   const suggestedUsers = useMemo((): UserRecord[] => {
     if (!authUser) return [];
@@ -549,10 +556,15 @@ function MainLayout() {
             </NavLink>
             <NavLink
               to="/messages"
-              aria-label="Messages"
-              className="rounded-full p-1.5 transition-colors hover:bg-zinc-100 active:scale-95"
+              aria-label={
+                messagesBadgeCount > 0
+                  ? `Messages, ${messagesBadgeCount} unread`
+                  : "Messages"
+              }
+              className="relative rounded-full p-1.5 transition-colors hover:bg-zinc-100 active:scale-95"
             >
               <MessageCircle size={23} strokeWidth={2} />
+              <NotificationBadge count={messagesBadgeCount} />
             </NavLink>
           </div>
         </div>
@@ -651,6 +663,42 @@ function MainLayout() {
                             <NotificationBadge
                               count={followActivityBadgeCount}
                             />
+                          </span>
+                          <span className="hidden xl:inline">{item.label}</span>
+                        </>
+                      )}
+                    </NavLink>
+                  );
+                }
+
+                if (item.to === "/messages") {
+                  return (
+                    <NavLink
+                      key={item.label}
+                      to={item.to}
+                      aria-label={
+                        messagesBadgeCount > 0
+                          ? `${item.label}, ${messagesBadgeCount} unread`
+                          : item.label
+                      }
+                      className={({ isActive }) =>
+                        `group flex items-center gap-4 rounded-xl px-3 py-3 text-[15px] font-normal transition-all duration-100
+		  ${
+        isActive
+          ? "font-semibold text-zinc-900"
+          : "text-zinc-800 hover:bg-zinc-100"
+      }`
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <span className="relative inline-flex shrink-0">
+                            <item.icon
+                              size={24}
+                              strokeWidth={isActive ? 2.5 : 2}
+                              className="transition-transform duration-100 group-hover:scale-110"
+                            />
+                            <NotificationBadge count={messagesBadgeCount} />
                           </span>
                           <span className="hidden xl:inline">{item.label}</span>
                         </>
@@ -805,7 +853,7 @@ function MainLayout() {
               </div>
 
               {/* Footer */}
-              <div className="text-center">
+              {/* <div className="text-center">
                 <nav
                   aria-label="Site links"
                   className="flex flex-wrap items-center justify-center gap-x-0.5 gap-y-1 leading-relaxed"
@@ -834,7 +882,7 @@ function MainLayout() {
                 <p className="mt-2 text-center text-[11px] text-zinc-400">
                   © 2026 Instagram from Meta
                 </p>
-              </div>
+              </div> */}
             </div>
           </aside>
         )}
