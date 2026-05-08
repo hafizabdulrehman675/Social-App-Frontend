@@ -327,8 +327,8 @@ function PostCard({
   const hasComments = comments.length > 0;
   const isPostOwner = Boolean(
     authUser &&
-      (String(authUser.id) === String(post.authorId) ||
-        authUser.username === post.username),
+    (String(authUser.id) === String(post.authorId) ||
+      authUser.username === post.username),
   );
 
   useEffect(() => {
