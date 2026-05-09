@@ -5,9 +5,7 @@ import {
   House,
   MessageCircle,
   PlusSquare,
-  Search,
   User,
-  Film,
 } from "lucide-react";
 import {
   Link,
@@ -386,6 +384,13 @@ function MainLayout() {
     Boolean((m.handle as { hideRightSidebar?: boolean })?.hideRightSidebar),
   );
 
+  /** `/profile` + `/profile/:username` — not `/profile/edit` (RR NavLink prefix match would wrongly highlight). */
+  const isProfileNavActive = useMemo(() => {
+    const p = location.pathname;
+    if (p.startsWith("/profile/edit")) return false;
+    return p === "/profile" || /^\/profile\/[^/]+$/.test(p);
+  }, [location.pathname]);
+
   const incomingFollowRequests = useMemo(() => {
     if (!authUser) return [];
     return Object.values(social.requestsById).filter(
@@ -561,18 +566,6 @@ function MainLayout() {
               <Heart size={23} strokeWidth={2} />
               <NotificationBadge count={followActivityBadgeCount} />
             </NavLink>
-            <NavLink
-              to="/messages"
-              aria-label={
-                messagesBadgeCount > 0
-                  ? `Messages, ${messagesBadgeCount} unread`
-                  : "Messages"
-              }
-              className="relative rounded-full p-1.5 transition-colors hover:bg-zinc-100 active:scale-95"
-            >
-              <MessageCircle size={23} strokeWidth={2} />
-              <NotificationBadge count={messagesBadgeCount} />
-            </NavLink>
           </div>
         </div>
       </header>
@@ -718,53 +711,49 @@ function MainLayout() {
               })}
 
               {/* Profile */}
-              <NavLink
+              <Link
                 to="/profile"
-                className={({ isActive }) =>
-                  `group flex items-center gap-4 rounded-xl px-3 py-3 text-[15px] font-normal transition-all duration-100
+                className={`group flex items-center gap-4 rounded-xl px-3 py-3 text-[15px] font-normal transition-all duration-100
                   ${
-                    isActive
+                    isProfileNavActive
                       ? "font-semibold text-zinc-900"
                       : "text-zinc-800 hover:bg-zinc-100"
-                  }`
-                }
+                  }`}
               >
-                {({ isActive }) =>
-                  authUser ? (
-                    <>
-                      <Avatar
-                        className={`size-6 shrink-0 transition-transform duration-100 group-hover:scale-110 ${
-                          isActive ? "ring-2 ring-zinc-900 ring-offset-1" : ""
-                        }`}
-                      >
-                        <AvatarImage
-                          src={authUser.avatarUrl ?? undefined}
-                          alt={authUser.username}
-                        />
-                        <AvatarFallback className="text-xs">
-                          {authUser.username.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span
-                        className={`hidden xl:inline ${
-                          isActive ? "font-semibold" : ""
-                        }`}
-                      >
-                        Profile
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <User
-                        size={24}
-                        strokeWidth={isActive ? 2.5 : 2}
-                        className="shrink-0 transition-transform duration-100 group-hover:scale-110"
+                {authUser ? (
+                  <>
+                    <Avatar
+                      className={`size-6 shrink-0 transition-opacity duration-100 group-hover:scale-110 ${
+                        isProfileNavActive ? "opacity-100" : "opacity-80"
+                      }`}
+                    >
+                      <AvatarImage
+                        src={authUser.avatarUrl ?? undefined}
+                        alt={authUser.username}
                       />
-                      <span className="hidden xl:inline">Profile</span>
-                    </>
-                  )
-                }
-              </NavLink>
+                      <AvatarFallback className="text-xs">
+                        {authUser.username.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span
+                      className={`hidden xl:inline ${
+                        isProfileNavActive ? "font-semibold" : ""
+                      }`}
+                    >
+                      Profile
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <User
+                      size={24}
+                      strokeWidth={isProfileNavActive ? 2.5 : 2}
+                      className="shrink-0 transition-transform duration-100 group-hover:scale-110"
+                    />
+                    <span className="hidden xl:inline">Profile</span>
+                  </>
+                )}
+              </Link>
             </nav>
           </div>
         </aside>
@@ -1037,41 +1026,81 @@ function MainLayout() {
           </Button>
         </DialogContent>
       </Dialog>
-      {/* ─── Mobile bottom nav ─── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-200 bg-white px-2 py-2.5 md:hidden">
-        <div className="mx-auto flex max-w-[500px] items-center justify-around">
-          {[
-            { icon: House, to: "/" },
-            { icon: Search, to: "/search" },
-            { icon: PlusSquare, to: "/create" },
-            { icon: Film, to: "/reels" },
-          ].map(({ icon: Icon, to }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center justify-center rounded-full p-2 transition-all active:scale-90 ${
-                  isActive ? "text-zinc-900" : "text-zinc-500"
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <Icon size={26} strokeWidth={isActive ? 2.5 : 2} />
-              )}
-            </NavLink>
-          ))}
+      {/* ─── Mobile bottom nav: 5 equal columns (same tap width per slot) ─── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-200 bg-white px-1 py-2.5 md:hidden">
+        <div className="mx-auto grid w-full max-w-[500px] grid-cols-5 items-center justify-items-stretch gap-0">
           <NavLink
-            to="/profile"
+            to="/"
             className={({ isActive }) =>
-              `flex items-center justify-center rounded-full p-1 transition-all active:scale-90 ${
-                isActive
-                  ? "ring-[2px] ring-zinc-900 ring-offset-1 rounded-full"
-                  : ""
+              `flex w-full items-center justify-center rounded-full p-2 transition-all active:scale-90 ${
+                isActive ? "text-zinc-900" : "text-zinc-500"
               }`
             }
           >
+            {({ isActive }) => (
+              <House size={26} strokeWidth={isActive ? 2.5 : 2} />
+            )}
+          </NavLink>
+          <NavLink
+            to="/explore"
+            className={({ isActive }) =>
+              `flex w-full items-center justify-center rounded-full p-2 transition-all active:scale-90 ${
+                isActive ? "text-zinc-900" : "text-zinc-500"
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <Compass size={26} strokeWidth={isActive ? 2.5 : 2} />
+            )}
+          </NavLink>
+          <NavLink
+            to="/messages"
+            aria-label={
+              messagesBadgeCount > 0
+                ? `Messages, ${messagesBadgeCount} unread`
+                : "Messages"
+            }
+            className={({ isActive }) =>
+              `relative flex w-full items-center justify-center rounded-full p-2 transition-all active:scale-90 ${
+                isActive ? "text-zinc-900" : "text-zinc-500"
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <span className="relative inline-flex">
+                <MessageCircle size={26} strokeWidth={isActive ? 2.5 : 2} />
+                <NotificationBadge count={messagesBadgeCount} />
+              </span>
+            )}
+          </NavLink>
+          <NavLink
+            to="/create"
+            className={({ isActive }) =>
+              `flex w-full items-center justify-center rounded-full p-2 transition-all active:scale-90 ${
+                isActive ? "text-zinc-900" : "text-zinc-500"
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <PlusSquare size={26} strokeWidth={isActive ? 2.5 : 2} />
+            )}
+          </NavLink>
+          <Link
+            to="/profile"
+            aria-label="Profile"
+            aria-current={isProfileNavActive ? "page" : undefined}
+            className={cn(
+              "flex w-full items-center justify-center rounded-full p-1 transition-all active:scale-90",
+              isProfileNavActive ? "text-zinc-900" : "text-zinc-500",
+            )}
+          >
             {authUser ? (
-              <Avatar className="size-7">
+              <Avatar
+                className={cn(
+                  "size-7 transition-opacity",
+                  isProfileNavActive ? "opacity-100" : "opacity-60",
+                )}
+              >
                 <AvatarImage
                   src={authUser.avatarUrl ?? undefined}
                   alt={authUser.username}
@@ -1081,9 +1110,12 @@ function MainLayout() {
                 </AvatarFallback>
               </Avatar>
             ) : (
-              <User size={26} strokeWidth={2} />
+              <User
+                size={26}
+                strokeWidth={isProfileNavActive ? 2.5 : 2}
+              />
             )}
-          </NavLink>
+          </Link>
         </div>
       </nav>
     </div>

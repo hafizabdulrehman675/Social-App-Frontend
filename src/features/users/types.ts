@@ -4,6 +4,8 @@ export type User = {
   fullName: string;
   email: string;
   avatarUrl: string | null;
+  /** From API when present; edit via profile settings when UI exists */
+  bio?: string | null;
 };
 
 export type UserRecord = User & {

@@ -4,14 +4,12 @@ import {
   Grid3X3,
   Bookmark,
   Tag,
-  Play,
-  Settings,
   Plus,
-  ChevronDown,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -31,13 +29,14 @@ import {
 } from "@/features/social/redux/socialSlice";
 import type { SocialState } from "@/features/social/types";
 
-/* ─── Highlight bubble ──────────────────────────────────────────── */
+/* Highlight bubbles (Travel / Food / …) — static demo; re-enable when story highlights exist.
 const HIGHLIGHTS = [
   { id: "h1", label: "Travel", emoji: "✈️" },
   { id: "h2", label: "Food", emoji: "🍜" },
   { id: "h3", label: "Dev", emoji: "💻" },
   { id: "h4", label: "Vibes", emoji: "🎵" },
 ];
+*/
 
 /* ─── IG gradient ───────────────────────────────────────────────── */
 const IG_GRADIENT =
@@ -46,16 +45,12 @@ const IG_GRADIENT =
 /* ShadCN Button: no hover/active visual change (static chrome) */
 const profileBtnSecondary =
   "h-8 rounded-lg border-0 bg-zinc-100 px-4 text-[14px] font-semibold text-zinc-900 shadow-none hover:bg-zinc-100 hover:text-zinc-900 active:translate-y-0 active:bg-zinc-100";
-const profileBtnGhostIcon =
-  "size-auto rounded-full p-1.5 text-zinc-700 shadow-none hover:bg-transparent hover:text-zinc-700 active:translate-y-0 active:bg-transparent";
 const profileBtnGhostRow =
   "h-auto justify-start gap-0 p-0 text-left shadow-none hover:bg-transparent active:translate-y-0 active:bg-transparent";
 const profileBtnGhostTab =
   "rounded-none border-t px-5 py-3 text-[12px] font-semibold tracking-widest shadow-none hover:bg-transparent active:translate-y-0 active:bg-transparent";
 const profileBtnLinkBlue =
   "mt-5 h-auto p-0 text-[13px] font-semibold text-blue-500 shadow-none hover:bg-transparent hover:text-blue-500 hover:no-underline active:bg-transparent active:text-blue-500";
-const profileBtnHighlight =
-  "flex h-auto shrink-0 flex-col items-center gap-1.5 p-0 shadow-none hover:bg-transparent active:translate-y-0 active:bg-transparent";
 
 /* ─── Post thumbnail ────────────────────────────────────────────── */
 function PostThumb({ post, onClick }: { post: FeedPost; onClick: () => void }) {
@@ -137,7 +132,7 @@ function PostDialog({
   );
 }
 
-type ProfileTab = "posts" | "reels" | "saved" | "tagged";
+type ProfileTab = "posts" | "saved" | "tagged";
 type SocialListType = "followers" | "following";
 type SocialListUser = {
   id: string | number;
@@ -238,10 +233,35 @@ function ProfilePage() {
   );
   const [socialListUsers, setSocialListUsers] = useState<SocialListUser[]>([]);
   const [isLoadingSocialList, setIsLoadingSocialList] = useState(false);
+  const [fetchedBio, setFetchedBio] = useState<string | null | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     setTab("posts");
   }, [routeUsername, profileUser?.id]);
+
+  useEffect(() => {
+    if (!profileUser?.username) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await apiRequest<{
+          data: {
+            user: { bio?: string | null };
+          };
+        }>(`/api/users/${encodeURIComponent(profileUser.username)}`, {
+          headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        });
+        if (!cancelled) setFetchedBio(res.data.user.bio ?? null);
+      } catch {
+        if (!cancelled) setFetchedBio(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profileUser?.username, authToken]);
 
   useEffect(() => {
     if (!isOwnProfile && tab === "saved") setTab("posts");
@@ -275,12 +295,26 @@ function ProfilePage() {
   const tabDefs = useMemo(() => {
     const all = [
       { key: "posts" as const, icon: Grid3X3, label: "POSTS" },
-      { key: "reels" as const, icon: Play, label: "REELS" },
       { key: "saved" as const, icon: Bookmark, label: "SAVED" },
       { key: "tagged" as const, icon: Tag, label: "TAGGED" },
     ];
     return isOwnProfile ? all : all.filter((t) => t.key === "posts");
   }, [isOwnProfile]);
+
+  const displayBio = useMemo(() => {
+    if (isOwnProfile && authUser) {
+      return authUser.bio?.trim() ?? "";
+    }
+    const fromStore = profileUser?.bio?.trim() ?? "";
+    if (fromStore) return fromStore;
+    if (fetchedBio !== undefined) return (fetchedBio ?? "").trim();
+    return "";
+  }, [
+    isOwnProfile,
+    authUser?.bio,
+    profileUser?.bio,
+    fetchedBio,
+  ]);
 
   if (!authUser && !routeUsername) {
     return (
@@ -480,9 +514,9 @@ function ProfilePage() {
     <>
       <style>{`@import url('https://fonts.cdnfonts.com/css/billabong');`}</style>
 
-      <div className="mx-auto w-full max-w-[935px] px-4 md:px-8">
-        <div className="flex flex-col gap-6 pb-6 pt-8 sm:flex-row sm:items-start sm:gap-10 md:gap-16">
-          <div className="flex justify-center sm:block sm:shrink-0">
+      <div className="mx-auto w-full max-w-[935px] min-w-0 px-3 sm:px-4 md:px-8">
+        <div className="flex flex-col gap-5 pb-6 pt-6 sm:gap-6 sm:pt-8 md:flex-row md:items-start md:gap-16">
+          <div className="flex shrink-0 justify-center md:block">
             <div
               className="rounded-full p-[3px]"
               style={{ background: IG_GRADIENT }}
@@ -501,65 +535,58 @@ function ProfilePage() {
             </div>
           </div>
 
-          <div className="flex flex-1 flex-col gap-4">
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
+            <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <h2
-                className="text-[22px] font-normal leading-none"
+                className="min-w-0 shrink truncate text-[20px] font-normal leading-none sm:text-[22px]"
                 style={{ color: "black" }}
               >
                 {profileUser.username}
               </h2>
 
-              {isOwnProfile ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className={profileBtnSecondary}
-                    asChild
-                  >
-                    <Link to="/profile/edit">Edit profile</Link>
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className={profileBtnSecondary}
-                    onClick={() => dispatch(setActiveModal("createPost"))}
-                  >
-                    <Plus size={15} className="mr-1" />
-                    Create
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Settings"
-                    className={profileBtnGhostIcon}
-                  >
-                    <Settings size={22} strokeWidth={1.75} />
-                  </Button>
-                </>
-              ) : authUser ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className={profileBtnSecondary}
-                    onClick={() => void handlePrimaryFollowAction()}
-                  >
-                    {followButtonLabel}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className={profileBtnSecondary}
-                    asChild
-                  >
-                    <Link to="/messages">Message</Link>
-                  </Button>
-                </>
-              ) : null}
+              <div className="flex min-w-0 flex-wrap gap-2 sm:flex-1 sm:justify-start">
+                {isOwnProfile ? (
+                  <>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className={cn(profileBtnSecondary, "min-h-9 flex-1 sm:flex-none")}
+                      asChild
+                    >
+                      <Link to="/profile/edit">Edit profile</Link>
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className={cn(profileBtnSecondary, "min-h-9 flex-1 sm:flex-none")}
+                      onClick={() => dispatch(setActiveModal("createPost"))}
+                    >
+                      <Plus size={15} className="mr-1" />
+                      Create
+                    </Button>
+                  </>
+                ) : authUser ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className={cn(profileBtnSecondary, "min-h-9 flex-1 sm:flex-none")}
+                      onClick={() => void handlePrimaryFollowAction()}
+                    >
+                      {followButtonLabel}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className={cn(profileBtnSecondary, "min-h-9 flex-1 sm:flex-none")}
+                      asChild
+                    >
+                      <Link to="/messages">Message</Link>
+                    </Button>
+                  </>
+                ) : null}
+              </div>
             </div>
 
             <div className="hidden sm:flex items-center gap-10">
@@ -587,13 +614,24 @@ function ProfilePage() {
               ))}
             </div>
 
-            <div className="flex flex-col" style={{ alignItems: "start" }}>
-              <p className="text-[14px] font-semibold leading-snug pb-1">
-                {profileUser.fullName}
-              </p>
-              <p className="mt-0.5 text-[14px] leading-snug text-zinc-700">
-                ✦ Building cool things with React &amp; TypeScript
-              </p>
+            <div className="flex w-full min-w-0 flex-col items-start text-left">
+              {displayBio ? (
+                <p className="w-full max-w-full text-[14px] leading-snug text-zinc-700 whitespace-pre-wrap break-words">
+                  {displayBio}
+                </p>
+              ) : isOwnProfile ? (
+                <p className="w-full text-[14px] leading-snug text-zinc-500">
+                  Please add your bio through{" "}
+                  <Link
+                    to="/profile/edit"
+                    className="font-semibold text-zinc-800 underline-offset-2 hover:underline"
+                  >
+                    Edit profile
+                  </Link>
+                  .
+                </p>
+              ) : null}
+              {/* Static “more” row — re-enable when links exist.
               {isOwnProfile ? (
                 <Button
                   type="button"
@@ -603,6 +641,7 @@ function ProfilePage() {
                   more <ChevronDown size={14} />
                 </Button>
               ) : null}
+              */}
             </div>
           </div>
         </div>
@@ -631,6 +670,7 @@ function ProfilePage() {
           ))}
         </div>
 
+        {/* Story highlights (New + Travel, …) — not wired to API yet. Uncomment HIGHLIGHTS above + use profileBtnHighlight class when restoring.
         {isOwnProfile ? (
           <div
             className="flex gap-5 overflow-x-auto py-5"
@@ -639,7 +679,7 @@ function ProfilePage() {
             <Button
               type="button"
               variant="ghost"
-              className={profileBtnHighlight}
+              className="flex h-auto shrink-0 flex-col items-center gap-1.5 p-0 shadow-none hover:bg-transparent active:translate-y-0 active:bg-transparent"
             >
               <div className="flex size-[77px] items-center justify-center rounded-full border-2 border-dashed border-zinc-300 bg-zinc-50 text-2xl">
                 <Plus size={24} strokeWidth={1.5} className="text-zinc-500" />
@@ -652,7 +692,7 @@ function ProfilePage() {
                 key={h.id}
                 type="button"
                 variant="ghost"
-                className={profileBtnHighlight}
+                className="flex h-auto shrink-0 flex-col items-center gap-1.5 p-0 shadow-none hover:bg-transparent active:translate-y-0 active:bg-transparent"
               >
                 <div className="flex size-[77px] items-center justify-center rounded-full bg-zinc-100 text-[28px] ring-1 ring-zinc-200">
                   {h.emoji}
@@ -662,6 +702,7 @@ function ProfilePage() {
             ))}
           </div>
         ) : null}
+        */}
 
         <div className="border-t border-zinc-200">
           <div className="flex justify-center gap-0">
@@ -689,14 +730,6 @@ function ProfilePage() {
                 icon={Tag}
                 title="Photos of you"
                 sub="When people tag you in photos, they'll appear here."
-                activeTab={tab}
-                onCreatePost={openCreatePostModal}
-              />
-            ) : tab === "reels" ? (
-              <ProfileEmptyState
-                icon={Play}
-                title="No reels yet"
-                sub="Reels you create will appear here."
                 activeTab={tab}
                 onCreatePost={openCreatePostModal}
               />
@@ -728,7 +761,7 @@ function ProfilePage() {
           </div>
         </div>
 
-        <div className="h-16 md:h-6" />
+        <div className="h-20 pb-[env(safe-area-inset-bottom)] md:h-6 md:pb-0" />
       </div>
 
       <PostDialog

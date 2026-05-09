@@ -6,6 +6,7 @@ import * as Yup from "yup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { API_BASE_URL, ApiError, apiRequest } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { updateAuthenticatedUser } from "@/features/auth/redux/authSlice";
@@ -48,6 +49,10 @@ const EditProfileSchema = Yup.object({
       if (!np || np.length === 0) return true;
       return v === np;
     }),
+  bio: Yup.string()
+    .trim()
+    .max(500, "Bio must be at most 500 characters.")
+    .optional(),
 });
 
 function EditProfilePage() {
@@ -75,6 +80,7 @@ function EditProfilePage() {
       fullName: authUser?.fullName ?? "",
       username: authUser?.username ?? "",
       email: authUser?.email ?? "",
+      bio: authUser?.bio ?? "",
       currentPassword: "",
       newPassword: "",
       confirmNewPassword: "",
@@ -93,6 +99,8 @@ function EditProfilePage() {
             ? values.newPassword.trim()
             : undefined;
 
+        const bioTrimmed = values.bio.trim();
+
         await apiRequest<{
           data: {
             user: {
@@ -101,6 +109,7 @@ function EditProfilePage() {
               fullName: string;
               email: string;
               avatarUrl: string | null;
+              bio?: string | null;
             };
           };
         }>("/api/users/me", {
@@ -110,6 +119,7 @@ function EditProfilePage() {
             fullName: values.fullName.trim(),
             username: u,
             email: e,
+            bio: bioTrimmed,
             currentPassword: values.currentPassword,
             newPassword: newPw,
           }),
@@ -141,6 +151,7 @@ function EditProfilePage() {
             email: e,
             newPassword: newPw,
             avatarUrl: nextAvatarUrl,
+            bio: bioTrimmed.length > 0 ? bioTrimmed : null,
           }),
         );
 
@@ -169,6 +180,7 @@ function EditProfilePage() {
             username: u,
             email: e,
             avatarUrl: nextAvatarUrl,
+            bio: bioTrimmed.length > 0 ? bioTrimmed : null,
           }),
         );
 
@@ -212,35 +224,45 @@ function EditProfilePage() {
   }
 
   return (
-    <div className="mx-auto w-full px-4 py-8 text-left md:px-6">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <h2 className="" style={{ color: "black", fontSize: "34px" }}>
+    <div className="mx-auto w-full max-w-lg px-4 py-6 pb-24 text-left sm:px-5 sm:py-8 md:max-w-xl md:px-6">
+      <div className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+        <h2
+          style={{ color: "black" }}
+          className="text-[18px] font-semibold leading-tight tracking-tight text-zinc-900 sm:text-5xl md:text-[3rem]"
+        >
           Edit profile
         </h2>
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className="px-2 bg-zinc-200 hover:bg-zinc-200 text-zinc-900 hover:text-zinc-900 active:bg-transparent cursor-pointer"
+          className="h-9 w-full shrink-0 rounded-lg bg-zinc-100 px-4 text-zinc-900 hover:bg-zinc-200 sm:w-auto"
           onClick={() => navigate(-1)}
         >
           Back
         </Button>
       </div>
 
-      <form className="space-y-5" onSubmit={formik.handleSubmit} noValidate>
-        <div className="flex items-center gap-4 rounded-lg border border-zinc-200 p-4">
+      <form
+        className="space-y-5 sm:space-y-6"
+        onSubmit={formik.handleSubmit}
+        noValidate
+      >
+        <div className="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-zinc-50/40 p-4 sm:flex-row sm:items-center">
           <img
             src={currentAvatarUrl}
             alt="Profile avatar preview"
-            className="h-16 w-16 rounded-full object-cover"
+            className="mx-auto size-20 shrink-0 rounded-full object-cover ring-2 ring-white sm:mx-0 sm:size-16"
           />
-          <div className="space-y-2">
-            <Label htmlFor="edit-avatar">Profile photo</Label>
+          <div className="min-w-0 flex-1 space-y-2 text-center sm:text-left">
+            <Label htmlFor="edit-avatar" className="text-zinc-800">
+              Profile photo
+            </Label>
             <Input
               id="edit-avatar"
               type="file"
               accept="image/*"
+              className="h-auto min-h-8 w-full cursor-pointer text-sm file:mr-3 file:rounded-md file:border-0 file:bg-zinc-200 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-900 hover:file:bg-zinc-300"
               onChange={(e) => {
                 const file = e.target.files?.[0] ?? null;
                 setAvatarFile(file);
@@ -251,7 +273,7 @@ function EditProfilePage() {
                 setAvatarPreviewUrl(URL.createObjectURL(file));
               }}
             />
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs leading-snug text-zinc-500">
               JPG, PNG, WEBP up to 5MB.
             </p>
           </div>
@@ -266,7 +288,10 @@ function EditProfilePage() {
             value={formik.values.fullName}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            className={fieldError("fullName") ? "border-destructive" : ""}
+            className={cn(
+              "h-10 w-full min-w-0 text-base md:text-sm",
+              fieldError("fullName") ? "border-destructive" : "",
+            )}
           />
           {fieldError("fullName") && (
             <p className="text-xs text-destructive">{fieldError("fullName")}</p>
@@ -282,7 +307,10 @@ function EditProfilePage() {
             value={formik.values.username}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            className={fieldError("username") ? "border-destructive" : ""}
+            className={cn(
+              "h-10 w-full min-w-0 text-base md:text-sm",
+              fieldError("username") ? "border-destructive" : "",
+            )}
           />
           {fieldError("username") && (
             <p className="text-xs text-destructive">{fieldError("username")}</p>
@@ -290,7 +318,36 @@ function EditProfilePage() {
         </div>
 
         <div className="space-y-2">
+          <Label htmlFor="edit-bio">Bio</Label>
+          <p className="text-xs text-zinc-500">
+            Shown on your profile directly under your name and username.
+          </p>
+          <textarea
+            id="edit-bio"
+            name="bio"
+            rows={4}
+            placeholder="Tell people about yourself…"
+            value={formik.values.bio}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            className={cn(
+              "min-h-[100px] w-full min-w-0 resize-y rounded-lg border border-input bg-transparent px-2.5 py-2.5 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30",
+              fieldError("bio") && "border-destructive",
+            )}
+          />
+          {fieldError("bio") && (
+            <p className="text-xs text-destructive">{fieldError("bio")}</p>
+          )}
+          <p className="text-right text-xs text-zinc-500 tabular-nums">
+            {formik.values.bio.length}/500
+          </p>
+        </div>
+
+        <div className="space-y-2 border-t border-zinc-200 pt-5">
           <Label htmlFor="edit-email">Email</Label>
+          <p className="text-xs text-zinc-500">
+            Private — used for login and notifications.
+          </p>
           <Input
             id="edit-email"
             name="email"
@@ -299,7 +356,10 @@ function EditProfilePage() {
             value={formik.values.email}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            className={fieldError("email") ? "border-destructive" : ""}
+            className={cn(
+              "h-10 w-full min-w-0 text-base md:text-sm",
+              fieldError("email") ? "border-destructive" : "",
+            )}
           />
           {fieldError("email") && (
             <p className="text-xs text-destructive">{fieldError("email")}</p>
@@ -319,9 +379,10 @@ function EditProfilePage() {
                 value={formik.values.currentPassword}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
-                className={
-                  fieldError("currentPassword") ? "border-destructive" : ""
-                }
+                className={cn(
+                  "h-10 min-w-0 text-base md:text-sm",
+                  fieldError("currentPassword") ? "border-destructive" : "",
+                )}
               />
               {fieldError("currentPassword") && (
                 <p className="text-xs text-destructive">
@@ -339,9 +400,10 @@ function EditProfilePage() {
                 value={formik.values.newPassword}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
-                className={
-                  fieldError("newPassword") ? "border-destructive" : ""
-                }
+                className={cn(
+                  "h-10 min-w-0 text-base md:text-sm",
+                  fieldError("newPassword") ? "border-destructive" : "",
+                )}
               />
               {fieldError("newPassword") && (
                 <p className="text-xs text-destructive">
@@ -361,9 +423,10 @@ function EditProfilePage() {
                 value={formik.values.confirmNewPassword}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
-                className={
-                  fieldError("confirmNewPassword") ? "border-destructive" : ""
-                }
+                className={cn(
+                  "h-10 min-w-0 text-base md:text-sm",
+                  fieldError("confirmNewPassword") ? "border-destructive" : "",
+                )}
               />
               {fieldError("confirmNewPassword") && (
                 <p className="text-xs text-destructive">
@@ -374,22 +437,30 @@ function EditProfilePage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3 pt-2">
-          <Button
-            type="submit"
-            disabled={formik.isSubmitting}
-            className={btnPrimaryStill}
-          >
-            Save
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className={btnOutlineStill}
-            onClick={() => navigate("/profile")}
-          >
-            Cancel
-          </Button>
+        <div className="mt-8 border-t border-zinc-200 pt-6 sm:mt-10">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end sm:gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(
+                btnOutlineStill,
+                "order-2 h-11 w-full rounded-lg font-semibold sm:order-1 sm:h-10 sm:min-w-[9rem] sm:w-auto",
+              )}
+              onClick={() => navigate("/profile")}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={formik.isSubmitting}
+              className={cn(
+                btnPrimaryStill,
+                "order-1 h-11 w-full rounded-lg font-semibold sm:order-2 sm:h-10 sm:min-w-[9rem] sm:w-auto",
+              )}
+            >
+              {formik.isSubmitting ? "Saving…" : "Save"}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

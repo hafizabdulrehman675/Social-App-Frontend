@@ -4,6 +4,7 @@ export type AuthUser = {
   fullName: string;
   email: string;
   avatarUrl: string | null;
+  bio?: string | null;
 };
 
 export type AuthState = {
