@@ -305,7 +305,7 @@ function MessagesPage() {
               id: userRecord.id,
               username: userRecord.username,
               fullName: userRecord.fullName,
-              avatarUrl: userRecord.avatarUrl,
+              avatarUrl: userRecord.avatarUrl ?? "",
               isOnline: t.peer.id === otherId ? t.peer.isOnline : false,
               lastSeen: t.peer.id === otherId ? t.peer.lastSeen : undefined,
             }
@@ -626,7 +626,10 @@ function MessagesPage() {
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-zinc-50 transition-colors"
                   >
                     <Avatar className="size-[56px] shrink-0">
-                      <AvatarImage src={u.avatarUrl} alt={u.username} />
+                      <AvatarImage
+                        src={u.avatarUrl ?? undefined}
+                        alt={u.username}
+                      />
                       <AvatarFallback>
                         {u.username.slice(0, 2).toUpperCase()}
                       </AvatarFallback>

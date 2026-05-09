@@ -140,7 +140,7 @@ function SuggestedUserRow({
         className="flex min-w-0 flex-1 items-center gap-3 rounded-md py-0.5 pr-1 transition-colors hover:bg-zinc-50"
       >
         <Avatar className="size-8 shrink-0">
-          <AvatarImage src={u.avatarUrl} alt={u.username} />
+          <AvatarImage src={u.avatarUrl ?? undefined} alt={u.username} />
           <AvatarFallback className="text-xs">
             {u.username.slice(0, 2).toUpperCase()}
           </AvatarFallback>
@@ -321,6 +321,13 @@ const FOOTER_LINK_LABELS = [
 
 const footerLinkButtonClass =
   "h-auto min-h-0 cursor-pointer rounded px-1 py-0.5 text-[11px] font-normal leading-relaxed text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-300";
+
+/** Keeps footer helpers referenced while footer JSX below stays commented out (TS noUnusedLocals). */
+function __preserveFooterConstantsForLater(): void {
+  void FOOTER_LINK_LABELS;
+  void footerLinkButtonClass;
+}
+void __preserveFooterConstantsForLater;
 
 function SidebarNavItem({
   label,
@@ -731,7 +738,7 @@ function MainLayout() {
                         }`}
                       >
                         <AvatarImage
-                          src={authUser.avatarUrl}
+                          src={authUser.avatarUrl ?? undefined}
                           alt={authUser.username}
                         />
                         <AvatarFallback className="text-xs">
@@ -789,7 +796,7 @@ function MainLayout() {
                   <div className="flex items-center gap-3.5">
                     <Avatar className="size-11">
                       <AvatarImage
-                        src={authUser.avatarUrl}
+                        src={authUser.avatarUrl ?? undefined}
                         alt={authUser.username}
                       />
                       <AvatarFallback>
@@ -934,7 +941,7 @@ function MainLayout() {
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <Avatar className="size-10 shrink-0">
-                        <AvatarImage src={avatar} alt="" />
+                        <AvatarImage src={avatar ?? undefined} alt="" />
                         <AvatarFallback className="text-xs">
                           {label.slice(0, 2).toUpperCase()}
                         </AvatarFallback>
@@ -1065,7 +1072,10 @@ function MainLayout() {
           >
             {authUser ? (
               <Avatar className="size-7">
-                <AvatarImage src={authUser.avatarUrl} alt={authUser.username} />
+                <AvatarImage
+                  src={authUser.avatarUrl ?? undefined}
+                  alt={authUser.username}
+                />
                 <AvatarFallback className="text-xs">
                   {authUser.username.slice(0, 2).toUpperCase()}
                 </AvatarFallback>

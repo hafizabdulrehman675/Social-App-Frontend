@@ -490,7 +490,7 @@ function ProfilePage() {
               <div className="rounded-full bg-white p-[3px]">
                 <Avatar className="size-[86px] sm:size-[150px]">
                   <AvatarImage
-                    src={profileUser.avatarUrl}
+                    src={profileUser.avatarUrl ?? undefined}
                     alt={profileUser.username}
                   />
                   <AvatarFallback className="text-xl font-semibold">

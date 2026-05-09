@@ -3,14 +3,18 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 
 import { Button } from "@/components/ui/button";
+/*
 import {
   Card,
   CardContent,
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
+*/
 import { Input } from "@/components/ui/input";
+/*
 import { Label } from "@/components/ui/label";
+*/
 
 import { useAppDispatch } from "@/app/hooks";
 import { ApiError, apiRequest } from "@/lib/api";
@@ -40,15 +44,14 @@ const SignupSchema = Yup.object({
     .required("Password is required."),
 });
 
+/*
 // ── Left‑side decorative phone mockup ─────────────────────────────────────
 function PhoneMockup() {
   return (
     <div className="relative w-[260px] h-[380px] select-none">
-      {/* Back phone */}
       <div className="absolute top-6 left-0 w-[210px] h-[340px] rounded-3xl bg-white border border-zinc-200 shadow-2xl rotate-[-6deg] overflow-hidden">
         <div className="w-full h-full bg-gradient-to-br from-pink-100 via-purple-50 to-orange-100" />
       </div>
-      {/* Front phone */}
       <div className="absolute top-0 left-12 w-[210px] h-[360px] rounded-3xl bg-white border border-zinc-200 shadow-2xl overflow-hidden">
         <div className="w-full h-10 bg-zinc-50 flex items-center px-4 gap-2 border-b border-zinc-100">
           <div className="w-2 h-2 rounded-full bg-pink-400" />
@@ -78,6 +81,7 @@ function PhoneMockup() {
     </div>
   );
 }
+*/
 
 // ── Main component ─────────────────────────────────────────────────────────
 function SignupPage() {

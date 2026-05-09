@@ -27,6 +27,12 @@ import {
 } from "@/features/posts/redux/postsSlice";
 import type { FeedPost, PostComment, Story } from "@/features/posts/types";
 
+// Keeps `Send` referenced while Share `<Button>...</Send>` block stays commented below (TS noUnusedLocals).
+function __preserveFeedLucideIconsForLater(): void {
+  void Send;
+}
+void __preserveFeedLucideIconsForLater;
+
 const STORIES: ReadonlyArray<Story> = [
   { id: "s1", username: "you", avatarUrl: "https://i.pravatar.cc/100?u=you" },
   { id: "s2", username: "john", avatarUrl: "https://i.pravatar.cc/100?u=john" },
