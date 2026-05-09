@@ -5,7 +5,6 @@ import {
   Heart,
   MessageCircle,
   MoreHorizontal,
-  Plus,
   Send,
   Smile,
 } from "lucide-react";
@@ -25,7 +24,7 @@ import {
   setPostComments,
   updatePostInteraction,
 } from "@/features/posts/redux/postsSlice";
-import type { FeedPost, PostComment, Story } from "@/features/posts/types";
+import type { FeedPost, PostComment } from "@/features/posts/types";
 
 // Keeps `Send` referenced while Share `<Button>...</Send>` block stays commented below (TS noUnusedLocals).
 function __preserveFeedLucideIconsForLater(): void {
@@ -33,6 +32,7 @@ function __preserveFeedLucideIconsForLater(): void {
 }
 void __preserveFeedLucideIconsForLater;
 
+/* Stories feature — re-enable when backend + UI are ready (import type { Story }).
 const STORIES: ReadonlyArray<Story> = [
   { id: "s1", username: "you", avatarUrl: "https://i.pravatar.cc/100?u=you" },
   { id: "s2", username: "john", avatarUrl: "https://i.pravatar.cc/100?u=john" },
@@ -42,6 +42,7 @@ const STORIES: ReadonlyArray<Story> = [
   { id: "s6", username: "sara", avatarUrl: "https://i.pravatar.cc/100?u=sara" },
   { id: "s7", username: "mike", avatarUrl: "https://i.pravatar.cc/100?u=mike" },
 ];
+*/
 
 // ── Instagram gradient ─────────────────────────────────────────────────────
 const IG_GRADIENT =
@@ -146,7 +147,7 @@ function StoryRing({
   );
 }
 
-// ── Stories bar ────────────────────────────────────────────────────────────
+/* Stories bar — commented out until stories are implemented.
 function StoriesBar({ stories }: { stories: ReadonlyArray<Story> }) {
   return (
     <section className="border-b border-zinc-200 bg-white px-1 py-4 md:px-1">
@@ -202,6 +203,7 @@ function StoriesBar({ stories }: { stories: ReadonlyArray<Story> }) {
     </section>
   );
 }
+*/
 
 // ── Comment thread (nested replies; ShadCN has no List — use Card + roles) ─
 function CommentTree({
@@ -930,8 +932,8 @@ function FeedPage() {
         // className="w-full max-w-[470px] mx-auto"
         className="mx-auto w-full text-left"
       >
-        {/* Stories */}
-        <StoriesBar stories={STORIES} />
+        {/* Stories — uncomment STORIES + StoriesBar above when ready */}
+        {/* <StoriesBar stories={STORIES} /> */}
 
         {/* Posts */}
         <div>
