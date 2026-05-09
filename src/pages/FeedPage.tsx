@@ -590,7 +590,7 @@ function PostCard({
             </Button>
 
             {/* Share */}
-            <Button
+            {/* <Button
               type="button"
               variant="ghost"
               size="icon"
@@ -601,7 +601,7 @@ function PostCard({
                 className="size-6.5 -rotate-12 stroke-zinc-900 mt-1"
                 strokeWidth={1.8}
               />
-            </Button>
+            </Button> */}
           </div>
 
           {/* Save */}
