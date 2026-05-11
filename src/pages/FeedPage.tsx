@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { apiRequest } from "@/lib/api";
+import { avatarFallbackText } from "@/lib/avatarText";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import {
   addCommentFromServer,
@@ -34,13 +35,13 @@ void __preserveFeedLucideIconsForLater;
 
 /* Stories feature — re-enable when backend + UI are ready (import type { Story }).
 const STORIES: ReadonlyArray<Story> = [
-  { id: "s1", username: "you", avatarUrl: "https://i.pravatar.cc/100?u=you" },
-  { id: "s2", username: "john", avatarUrl: "https://i.pravatar.cc/100?u=john" },
-  { id: "s3", username: "emma", avatarUrl: "https://i.pravatar.cc/100?u=emma" },
-  { id: "s4", username: "zain", avatarUrl: "https://i.pravatar.cc/100?u=zain" },
-  { id: "s5", username: "alex", avatarUrl: "https://i.pravatar.cc/100?u=alex" },
-  { id: "s6", username: "sara", avatarUrl: "https://i.pravatar.cc/100?u=sara" },
-  { id: "s7", username: "mike", avatarUrl: "https://i.pravatar.cc/100?u=mike" },
+  { id: "s1", username: "you", avatarUrl: null },
+  { id: "s2", username: "john", avatarUrl: null },
+  { id: "s3", username: "emma", avatarUrl: null },
+  { id: "s4", username: "zain", avatarUrl: null },
+  { id: "s5", username: "alex", avatarUrl: null },
+  { id: "s6", username: "sara", avatarUrl: null },
+  { id: "s7", username: "mike", avatarUrl: null },
 ];
 */
 
@@ -97,7 +98,7 @@ function mapBackendPostToFeedPost(post: BackendPost): FeedPost {
     id: String(post.id),
     authorId: String(post.authorId),
     username: post.username,
-    avatarUrl: post.avatarUrl ?? "https://i.pravatar.cc/100?u=fallback",
+    avatarUrl: post.avatarUrl ?? null,
     location: post.location ?? "",
     imageUrl: post.imageUrl,
     likesCount: post.likesCount,
@@ -107,7 +108,7 @@ function mapBackendPostToFeedPost(post: BackendPost): FeedPost {
       id: String(c.id),
       parentId: c.parentId ? String(c.parentId) : null,
       username: c.username,
-      avatarUrl: c.avatarUrl ?? "https://i.pravatar.cc/100?u=fallback",
+      avatarUrl: c.avatarUrl ?? null,
       text: c.text,
       postedAtLabel: formatRelativeTime(c.createdAt),
     })),
@@ -167,9 +168,9 @@ function StoriesBar({ stories }: { stories: ReadonlyArray<Story> }) {
                 <>
                   <div className="size-full overflow-hidden rounded-full ring-1 ring-zinc-200 ring-inset">
                     <Avatar className="size-full">
-                      <AvatarImage src={story.avatarUrl} alt={story.username} />
+                      <AvatarImage src={story.avatarUrl ?? undefined} alt={story.username} />
                       <AvatarFallback className="text-sm">
-                        {story.username.slice(0, 2).toUpperCase()}
+                        {avatarFallbackText(story.username)}
                       </AvatarFallback>
                     </Avatar>
                   </div>
@@ -186,9 +187,9 @@ function StoriesBar({ stories }: { stories: ReadonlyArray<Story> }) {
               ) : (
                 <StoryRing>
                   <Avatar className="size-full">
-                    <AvatarImage src={story.avatarUrl} alt={story.username} />
+                    <AvatarImage src={story.avatarUrl ?? undefined} alt={story.username} />
                     <AvatarFallback className="text-sm">
-                      {story.username.slice(0, 2).toUpperCase()}
+                      {avatarFallbackText(story.username)}
                     </AvatarFallback>
                   </Avatar>
                 </StoryRing>
@@ -239,9 +240,9 @@ function CommentTree({
         <div key={c.id} role="listitem" className="w-full text-left">
           <div className="flex w-full items-start gap-3 text-left">
             <Avatar className="mt-0.5 size-8 shrink-0">
-              <AvatarImage src={c.avatarUrl} alt="" />
+              <AvatarImage src={c.avatarUrl ?? undefined} alt="" />
               <AvatarFallback className="text-[10px]">
-                {c.username.slice(0, 2).toUpperCase()}
+                {avatarFallbackText(c.username)}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1 text-left">
@@ -455,9 +456,9 @@ function PostCard({
           <div className="relative">
             <StoryRing>
               <Avatar className="size-9">
-                <AvatarImage src={post.avatarUrl} alt={post.username} />
+                <AvatarImage src={post.avatarUrl ?? undefined} alt={post.username} />
                 <AvatarFallback className="text-[10px]">
-                  {post.username.slice(0, 2).toUpperCase()}
+                  {avatarFallbackText(post.username)}
                 </AvatarFallback>
               </Avatar>
             </StoryRing>
@@ -882,7 +883,7 @@ function FeedPage() {
         id: String(c.id),
         parentId: c.parentId ? String(c.parentId) : null,
         username: c.username,
-        avatarUrl: c.avatarUrl ?? "https://i.pravatar.cc/100?u=fallback",
+        avatarUrl: c.avatarUrl ?? null,
         text: c.text,
         postedAtLabel: formatRelativeTime(c.createdAt),
         authorId: c.authorId ? String(c.authorId) : undefined,

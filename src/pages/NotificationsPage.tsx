@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Heart, Send, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { avatarFallbackText } from "@/lib/avatarText";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { setActiveModal } from "@/features/ui/redux/uiSlice";
 import { replaceSocialState } from "@/features/social/redux/socialSlice";
@@ -13,7 +15,7 @@ import { getSocket } from "@/lib/socket";
 type NotificationItem = {
   id: string;
   username: string;
-  userAvatarUrl: string;
+  userAvatarUrl: string | null;
   text: string;
   type: "incomingRequest" | "outgoingRequest" | "followingYou" | "message";
   isRead?: boolean;
@@ -116,8 +118,7 @@ function NotificationsPage() {
             return {
               id: String(n.id),
               username: n.sender?.username ?? "unknown_user",
-              userAvatarUrl:
-                n.sender?.avatarUrl ?? "https://i.pravatar.cc/100?u=unknown",
+              userAvatarUrl: n.sender?.avatarUrl ?? null,
               text: textMap[n.type],
               type: typeMap[n.type],
               isRead: n.isRead,
@@ -305,11 +306,15 @@ function NotificationsPage() {
                 className="flex min-w-0 flex-1 items-center gap-3"
                 onClick={() => void handleNotificationClick(item.id, item.isRead)}
               >
-                <img
-                  src={item.userAvatarUrl}
-                  alt={item.username}
-                  className="h-9 w-9 rounded-full object-cover"
-                />
+                <Avatar className="size-9 shrink-0">
+                  <AvatarImage
+                    src={item.userAvatarUrl ?? undefined}
+                    alt={item.username}
+                  />
+                  <AvatarFallback className="text-xs">
+                    {avatarFallbackText(item.username)}
+                  </AvatarFallback>
+                </Avatar>
                 <p className="truncate text-sm text-zinc-800">
                   <span className="font-semibold">{item.username}</span>{" "}
                   {item.text}

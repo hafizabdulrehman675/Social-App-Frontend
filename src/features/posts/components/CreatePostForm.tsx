@@ -81,7 +81,7 @@ function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
           id: String(created.id),
           authorId: String(created.userId),
           username: authUser.username,
-          avatarUrl: safeAvatar,
+          avatarUrl: safeAvatar ?? null,
           location: created.location ?? "",
           imageUrl: created.imageUrl,
           likesCount: 0,

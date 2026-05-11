@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { avatarFallbackText } from "@/lib/avatarText";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -398,7 +399,7 @@ function ProfilePage() {
         id: String(fullPost.id),
         authorId: String(fullPost.authorId),
         username: fullPost.username,
-        avatarUrl: fullPost.avatarUrl ?? "https://i.pravatar.cc/100?u=fallback",
+        avatarUrl: fullPost.avatarUrl ?? null,
         location: fullPost.location ?? "",
         imageUrl: fullPost.imageUrl,
         likesCount: fullPost.likesCount,
@@ -408,7 +409,7 @@ function ProfilePage() {
           id: String(c.id),
           parentId: c.parentId ? String(c.parentId) : null,
           username: c.username,
-          avatarUrl: c.avatarUrl ?? "https://i.pravatar.cc/100?u=fallback",
+          avatarUrl: c.avatarUrl ?? null,
           text: c.text,
           postedAtLabel: "JUST NOW",
         })),
@@ -528,7 +529,9 @@ function ProfilePage() {
                     alt={profileUser.username}
                   />
                   <AvatarFallback className="text-xl font-semibold">
-                    {profileUser.username.slice(0, 2).toUpperCase()}
+                    {avatarFallbackText(
+                      profileUser.fullName || profileUser.username,
+                    )}
                   </AvatarFallback>
                 </Avatar>
               </div>
@@ -806,7 +809,7 @@ function ProfilePage() {
                   <Avatar className="size-9">
                     <AvatarImage src={u.avatarUrl ?? undefined} alt={u.username} />
                     <AvatarFallback className="text-xs">
-                      {u.username.slice(0, 2).toUpperCase()}
+                      {avatarFallbackText(u.fullName || u.username)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">

@@ -1,5 +1,4 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
-const DEFAULT_AVATAR_URL = "https://i.pravatar.cc/100?u=default-avatar";
 
 export class ApiError extends Error {
   statusCode: number;
@@ -25,10 +24,10 @@ function normalizeResponseData(value: unknown): unknown {
     const output: Record<string, unknown> = {};
     for (const [key, v] of Object.entries(input)) {
       if (key === "avatarUrl") {
-        if (typeof v === "string") {
+        if (typeof v === "string" && v.length > 0) {
           output[key] = normalizeMediaUrl(v);
         } else {
-          output[key] = DEFAULT_AVATAR_URL;
+          output[key] = null;
         }
       } else if (key === "imageUrl" && typeof v === "string") {
         output[key] = normalizeMediaUrl(v);
@@ -44,8 +43,8 @@ function normalizeResponseData(value: unknown): unknown {
   return value;
 }
 
-export function ensureAvatarUrl(avatarUrl?: string | null): string {
-  if (!avatarUrl) return DEFAULT_AVATAR_URL;
+export function ensureAvatarUrl(avatarUrl?: string | null): string | null {
+  if (!avatarUrl) return null;
   return avatarUrl.startsWith("/uploads/")
     ? `${API_BASE_URL}${avatarUrl}`
     : avatarUrl;
@@ -102,5 +101,5 @@ export async function apiRequest<T>(
   return parseResponse<T>(response);
 }
 
-export { API_BASE_URL, DEFAULT_AVATAR_URL };
+export { API_BASE_URL };
 

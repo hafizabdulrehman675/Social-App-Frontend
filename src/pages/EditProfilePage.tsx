@@ -3,11 +3,13 @@ import { useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { API_BASE_URL, ApiError, apiRequest } from "@/lib/api";
+import { avatarFallbackText } from "@/lib/avatarText";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { updateAuthenticatedUser } from "@/features/auth/redux/authSlice";
 import { syncPostAuthorUsername } from "@/features/posts/redux/postsSlice";
@@ -63,15 +65,14 @@ function EditProfilePage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
 
-  const currentAvatarUrl = useMemo(() => {
-    const fromUpload =
-      avatarPreviewUrl ??
-      authUser?.avatarUrl ??
-      "https://i.pravatar.cc/100?u=fallback";
-    if (fromUpload.startsWith("/uploads/")) {
-      return `${API_BASE_URL}${fromUpload}`;
+  const resolvedAvatarSrc = useMemo(() => {
+    if (avatarPreviewUrl) return avatarPreviewUrl;
+    const raw = authUser?.avatarUrl;
+    if (!raw) return null;
+    if (raw.startsWith("/uploads/")) {
+      return `${API_BASE_URL}${raw}`;
     }
-    return fromUpload;
+    return raw;
   }, [avatarPreviewUrl, authUser?.avatarUrl]);
 
   const formik = useFormik({
@@ -249,11 +250,18 @@ function EditProfilePage() {
         noValidate
       >
         <div className="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-zinc-50/40 p-4 sm:flex-row sm:items-center">
-          <img
-            src={currentAvatarUrl}
-            alt="Profile avatar preview"
-            className="mx-auto size-20 shrink-0 rounded-full object-cover ring-2 ring-white sm:mx-0 sm:size-16"
-          />
+          <Avatar className="mx-auto size-20 shrink-0 ring-2 ring-white sm:mx-0 sm:size-16">
+            <AvatarImage
+              src={resolvedAvatarSrc ?? undefined}
+              alt="Profile avatar preview"
+              className="object-cover"
+            />
+            <AvatarFallback className="text-lg font-semibold">
+              {avatarFallbackText(
+                authUser?.fullName || authUser?.username || "",
+              )}
+            </AvatarFallback>
+          </Avatar>
           <div className="min-w-0 flex-1 space-y-2 text-center sm:text-left">
             <Label htmlFor="edit-avatar" className="text-zinc-800">
               Profile photo

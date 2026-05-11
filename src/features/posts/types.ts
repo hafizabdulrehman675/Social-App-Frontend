@@ -1,7 +1,7 @@
 export type Story = {
   id: string;
   username: string;
-  avatarUrl: string;
+  avatarUrl: string | null;
 };
 
 export type PostComment = {
@@ -9,7 +9,7 @@ export type PostComment = {
   parentId: string | null;
   authorId?: string;
   username: string;
-  avatarUrl: string;
+  avatarUrl: string | null;
   text: string;
   postedAtLabel: string;
 };
@@ -20,7 +20,7 @@ export type FeedPost = {
   authorId: string;
   username: string;
   location: string;
-  avatarUrl: string;
+  avatarUrl: string | null;
   imageUrl: string;
   likesCount: number;
   caption: string;

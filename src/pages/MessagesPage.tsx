@@ -13,6 +13,7 @@ import {
   Edit3,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { avatarFallbackText } from "@/lib/avatarText";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import {
   messageAcked,
@@ -97,9 +98,14 @@ function ConvoItem({
       {/* Avatar + online dot */}
       <div className="relative shrink-0">
         <Avatar className="size-[56px]">
-          <AvatarImage src={convo.user.avatarUrl} alt={convo.user.username} />
+          <AvatarImage
+            src={convo.user.avatarUrl ?? undefined}
+            alt={convo.user.username}
+          />
           <AvatarFallback>
-            {convo.user.username.slice(0, 2).toUpperCase()}
+            {avatarFallbackText(
+              convo.user.fullName || convo.user.username,
+            )}
           </AvatarFallback>
         </Avatar>
         {convo.user.isOnline && (
@@ -142,12 +148,14 @@ function ChatBubble({
   isMine,
   showAvatar,
   avatar,
+  peerLabel,
   onReact,
 }: {
   msg: MessageView;
   isMine: boolean;
   showAvatar: boolean;
-  avatar: string;
+  avatar: string | null;
+  peerLabel: string;
   onReact: (msgId: string, emoji: string) => void;
 }) {
   const [showReactions, setShowReactions] = useState(false);
@@ -160,8 +168,10 @@ function ChatBubble({
       <div className="size-7 shrink-0">
         {!isMine && showAvatar && (
           <Avatar className="size-7">
-            <AvatarImage src={avatar} />
-            <AvatarFallback className="text-[10px]">U</AvatarFallback>
+            <AvatarImage src={avatar ?? undefined} alt="" />
+            <AvatarFallback className="text-[10px]">
+              {avatarFallbackText(peerLabel)}
+            </AvatarFallback>
           </Avatar>
         )}
       </div>
@@ -631,7 +641,7 @@ function MessagesPage() {
                         alt={u.username}
                       />
                       <AvatarFallback>
-                        {u.username.slice(0, 2).toUpperCase()}
+                        {avatarFallbackText(u.fullName || u.username)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
@@ -679,11 +689,14 @@ function MessagesPage() {
                 <div className="relative">
                   <Avatar className="size-10">
                     <AvatarImage
-                      src={activeConvo.user.avatarUrl}
+                      src={activeConvo.user.avatarUrl ?? undefined}
                       alt={activeConvo.user.username}
                     />
                     <AvatarFallback>
-                      {activeConvo.user.username.slice(0, 2).toUpperCase()}
+                      {avatarFallbackText(
+                        activeConvo.user.fullName ||
+                          activeConvo.user.username,
+                      )}
                     </AvatarFallback>
                   </Avatar>
                   {activeConvo.user.isOnline && (
@@ -749,6 +762,10 @@ function MessagesPage() {
                         isMine={isMine}
                         showAvatar={showAvatar}
                         avatar={activeConvo.user.avatarUrl}
+                        peerLabel={
+                          activeConvo.user.fullName ||
+                          activeConvo.user.username
+                        }
                         onReact={(msgId, emoji) =>
                           reactToMessage(activeConvo.id, msgId, emoji)
                         }

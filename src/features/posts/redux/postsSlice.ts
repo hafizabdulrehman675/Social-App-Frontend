@@ -23,7 +23,7 @@ const p1Comments: PostComment[] = [
     id: "p1c1",
     parentId: null,
     username: "emma_w",
-    avatarUrl: "https://i.pravatar.cc/100?u=emma",
+    avatarUrl: null,
     text: "This is unreal — where was this taken?",
     postedAtLabel: "2h",
   },
@@ -31,7 +31,7 @@ const p1Comments: PostComment[] = [
     id: "p1c2",
     parentId: "p1c1",
     username: "john_doe",
-    avatarUrl: "https://i.pravatar.cc/100?img=5",
+    avatarUrl: null,
     text: "Clifton beach, right before sunset.",
     postedAtLabel: "1h",
   },
@@ -43,7 +43,7 @@ const initialPosts: FeedPost[] = [
     authorId: "u2",
     username: "second_user",
     location: "Karachi, PK",
-    avatarUrl: "https://i.pravatar.cc/100?u=second",
+    avatarUrl: null,
     imageUrl: "https://picsum.photos/700?random=1",
     likesCount: 1284,
     caption: "Golden hour never misses.",
@@ -58,7 +58,7 @@ const initialPosts: FeedPost[] = [
     authorId: "u1",
     username: "demo_user",
     location: "Studio",
-    avatarUrl: "https://i.pravatar.cc/100?u=demo",
+    avatarUrl: null,
     imageUrl: "https://picsum.photos/700?random=2",
     likesCount: 42,
     caption: "Shipping features on a Sunday.",
@@ -131,7 +131,7 @@ const postsSlice = createSlice({
         parentId: string | null;
         authorId?: string;
         username: string;
-        avatarUrl: string;
+        avatarUrl: string | null;
       }>,
     ) {
       const post = state.postsById[action.payload.postId];
@@ -169,8 +169,7 @@ const postsSlice = createSlice({
         parentId: action.payload.parentId,
         authorId: action.payload.authorId,
         username: action.payload.username,
-        avatarUrl:
-          action.payload.avatarUrl ?? "https://i.pravatar.cc/100?u=fallback",
+        avatarUrl: action.payload.avatarUrl ?? null,
         postedAtLabel: action.payload.postedAtLabel ?? "JUST NOW",
       });
       post.commentsCount = post.comments.length;

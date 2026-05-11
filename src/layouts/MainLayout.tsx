@@ -19,6 +19,7 @@ import { useAppSelector, useAppDispatch } from "@/app/hooks";
 import { logout } from "@/features/auth/redux/authSlice";
 import { clearSession } from "@/lib/session";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { avatarFallbackText } from "@/lib/avatarText";
 
 import {
   Dialog,
@@ -140,7 +141,7 @@ function SuggestedUserRow({
         <Avatar className="size-8 shrink-0">
           <AvatarImage src={u.avatarUrl ?? undefined} alt={u.username} />
           <AvatarFallback className="text-xs">
-            {u.username.slice(0, 2).toUpperCase()}
+            {avatarFallbackText(u.fullName || u.username)}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex flex-col items-start gap-0.5">
@@ -765,7 +766,9 @@ function MainLayout() {
                         alt={authUser.username}
                       />
                       <AvatarFallback className="text-xs">
-                        {authUser.username.slice(0, 2).toUpperCase()}
+                        {avatarFallbackText(
+                          authUser.fullName || authUser.username,
+                        )}
                       </AvatarFallback>
                     </Avatar>
                     <span
@@ -822,7 +825,9 @@ function MainLayout() {
                         alt={authUser.username}
                       />
                       <AvatarFallback>
-                        {authUser.username.slice(0, 2).toUpperCase()}
+                        {avatarFallbackText(
+                          authUser.fullName || authUser.username,
+                        )}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col justify-start items-start">
@@ -956,6 +961,8 @@ function MainLayout() {
                 const from = usersById[req.fromUserId];
                 const label = from?.username ?? "Unknown user";
                 const avatar = from?.avatarUrl;
+                const initialsSource =
+                  from?.fullName || from?.username || label;
                 return (
                   <li
                     key={req.id}
@@ -965,7 +972,7 @@ function MainLayout() {
                       <Avatar className="size-10 shrink-0">
                         <AvatarImage src={avatar ?? undefined} alt="" />
                         <AvatarFallback className="text-xs">
-                          {label.slice(0, 2).toUpperCase()}
+                          {avatarFallbackText(initialsSource)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
@@ -1139,7 +1146,9 @@ function MainLayout() {
                   alt={authUser.username}
                 />
                 <AvatarFallback className="text-xs">
-                  {authUser.username.slice(0, 2).toUpperCase()}
+                  {avatarFallbackText(
+                    authUser.fullName || authUser.username,
+                  )}
                 </AvatarFallback>
               </Avatar>
             ) : (

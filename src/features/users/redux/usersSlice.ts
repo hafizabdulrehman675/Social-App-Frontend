@@ -27,7 +27,7 @@ function seedUsers(): UsersState {
     username: "demo_user",
     fullName: "Demo User",
     email: "demo@example.com",
-    avatarUrl: "https://i.pravatar.cc/100?u=demo",
+    avatarUrl: null,
     password: "demo123",
   };
 
@@ -36,7 +36,7 @@ function seedUsers(): UsersState {
     username: "second_user",
     fullName: "Second User",
     email: "second@example.com",
-    avatarUrl: "https://i.pravatar.cc/100?u=second",
+    avatarUrl: null,
     password: "second123",
   };
 

@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { Search } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
+import { avatarFallbackText } from "@/lib/avatarText";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { useAppSelector } from "@/app/hooks";
 import type { FeedPost } from "@/features/posts/types";
@@ -106,11 +108,15 @@ function ExplorePage() {
                 to={`/profile/${encodeURIComponent(user.username)}`}
                 className="flex items-center gap-3 rounded-md border border-zinc-200 bg-white p-3 hover:bg-zinc-50"
               >
-                <img
-                  src={user.avatarUrl || "https://i.pravatar.cc/100?u=fallback"}
-                  alt={user.username}
-                  className="h-10 w-10 rounded-full object-cover"
-                />
+                <Avatar className="size-10 shrink-0">
+                  <AvatarImage
+                    src={user.avatarUrl ?? undefined}
+                    alt={user.username}
+                  />
+                  <AvatarFallback className="text-xs">
+                    {avatarFallbackText(user.fullName || user.username)}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="text-left">
                   <p className="text-sm font-semibold text-zinc-900">
                     {user.username}
