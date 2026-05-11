@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   Compass,
   Heart,
@@ -44,7 +44,7 @@ import {
 import CreatePostForm from "@/features/posts/components/CreatePostForm";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { connectSocket, disconnectSocket } from "@/lib/socket";
+import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
 const NAV_ITEMS = [
   { label: "Home", icon: House, to: "/" },
   // { label: "Search", icon: Search, to: "/search" },
@@ -153,13 +153,13 @@ function SuggestedUserRow({
         </div>
       </Link>
 
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex">
         {rel.kind === "incoming" ? (
           <>
             <Button
               type="button"
               size="sm"
-              className="h-7 rounded-md bg-[#0095f6] px-2.5 text-[11px] font-semibold text-white hover:bg-[#1877f2]"
+              className="h-7 rounded-md bg-[#0095f6] px-1.5 text-[11px] font-semibold text-white hover:bg-[#1877f2] cursor-pointer"
               onClick={async () => {
                 if (!authToken) return;
                 try {
@@ -183,7 +183,7 @@ function SuggestedUserRow({
               type="button"
               size="sm"
               variant="secondary"
-              className="h-7 rounded-md px-2.5 text-[11px] font-semibold"
+              className="h-7 rounded-md px-2.5 text-[11px] font-semibold text-[#ffffff] bg-red-500 cursor-pointer hover:bg-red-600"
               onClick={async () => {
                 if (!authToken) return;
                 try {
@@ -466,34 +466,67 @@ function MainLayout() {
     loadUsersFromBackend();
   }, [authUser, authToken, dispatch]);
 
-  useEffect(() => {
-    async function loadSocialStateFromBackend() {
-      if (!authUser || !authToken) {
-        dispatch(clearSocialState());
-        return;
-      }
-      try {
-        let response;
-        try {
-          response = await apiRequest<{ data: SocialState }>("/api/social/me", {
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
-        } catch {
-          response = await apiRequest<{ data: SocialState }>(
-            "/api/social/state",
-            {
-              headers: { Authorization: `Bearer ${authToken}` },
-            },
-          );
-        }
-        dispatch(replaceSocialState(response.data));
-      } catch {
-        // Keep existing social state when sync request fails transiently.
-      }
+  const syncSocialStateFromBackend = useCallback(async () => {
+    if (!authUser || !authToken) {
+      dispatch(clearSocialState());
+      return;
     }
-
-    loadSocialStateFromBackend();
+    try {
+      let response;
+      try {
+        response = await apiRequest<{ data: SocialState }>("/api/social/me", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+      } catch {
+        response = await apiRequest<{ data: SocialState }>(
+          "/api/social/state",
+          {
+            headers: { Authorization: `Bearer ${authToken}` },
+          },
+        );
+      }
+      dispatch(replaceSocialState(response.data));
+    } catch {
+      // Keep existing social state when sync request fails transiently.
+    }
   }, [authUser, authToken, dispatch]);
+
+  useEffect(() => {
+    void syncSocialStateFromBackend();
+  }, [syncSocialStateFromBackend]);
+
+  useEffect(() => {
+    if (!authUser || !authToken) return;
+
+    const intervalId = window.setInterval(() => {
+      void syncSocialStateFromBackend();
+    }, 8000);
+
+    const onFocus = () => {
+      void syncSocialStateFromBackend();
+    };
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [authUser, authToken, syncSocialStateFromBackend]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !authToken || !authUser) return;
+
+    const onNotificationNew = () => {
+      // Follow-request badge + modal list depend on social state; refresh on live notifications.
+      void syncSocialStateFromBackend();
+    };
+
+    socket.on("notification:new", onNotificationNew);
+    return () => {
+      socket.off("notification:new", onNotificationNew);
+    };
+  }, [authToken, authUser, syncSocialStateFromBackend]);
 
   /*
     LocalStorage debug reference (disabled intentionally after backend connectivity):
@@ -944,11 +977,11 @@ function MainLayout() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex shrink-0 gap-2">
+                    <div className="flex gap-2">
                       <Button
                         type="button"
                         size="sm"
-                        className="h-8 rounded-lg bg-[#0095f6] px-3 text-xs font-semibold text-white hover:bg-[#1877f2]"
+                        className="h-8 rounded-lg bg-[#0095f6] px-3 text-xs font-semibold text-white hover:bg-[#1877f2] cursor-pointer"
                         onClick={async () => {
                           if (!authToken) return;
                           try {
@@ -976,7 +1009,7 @@ function MainLayout() {
                         type="button"
                         size="sm"
                         variant="secondary"
-                        className="h-8 rounded-lg px-3 text-xs font-semibold"
+                        className="h-8 rounded-lg px-4 text-xs font-semibold text-[#ffffff] bg-red-500 cursor-pointer hover:bg-red-600"
                         onClick={async () => {
                           if (!authToken) return;
                           try {
@@ -1110,10 +1143,7 @@ function MainLayout() {
                 </AvatarFallback>
               </Avatar>
             ) : (
-              <User
-                size={26}
-                strokeWidth={isProfileNavActive ? 2.5 : 2}
-              />
+              <User size={26} strokeWidth={isProfileNavActive ? 2.5 : 2} />
             )}
           </Link>
         </div>

@@ -5,6 +5,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { setActiveModal } from "@/features/ui/redux/uiSlice";
+import { replaceSocialState } from "@/features/social/redux/socialSlice";
+import type { SocialState } from "@/features/social/types";
 import { apiRequest } from "@/lib/api";
 import { getSocket } from "@/lib/socket";
 
@@ -190,18 +192,22 @@ function NotificationsPage() {
     }
   }
 
-  async function handleMarkAllRead() {
-    if (!authToken || backendNotifications.length === 0) return;
+  async function refreshSocialState() {
+    if (!authToken) return;
     try {
-      await apiRequest("/api/notifications/read-all", {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      setBackendNotifications((prev) =>
-        prev.map((n) => ({ ...n, isRead: true })),
-      );
+      let response;
+      try {
+        response = await apiRequest<{ data: SocialState }>("/api/social/me", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+      } catch {
+        response = await apiRequest<{ data: SocialState }>("/api/social/state", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+      }
+      dispatch(replaceSocialState(response.data));
     } catch {
-      // Keep current state on error.
+      // Keep current state on transient sync failures.
     }
   }
 
@@ -232,15 +238,6 @@ function NotificationsPage() {
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => void handleMarkAllRead()}
-            disabled={backendNotifications.length === 0}
-          >
-            Mark all read
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
             onClick={() => void handleDeleteAll()}
             disabled={backendNotifications.length === 0}
           >
@@ -267,7 +264,10 @@ function NotificationsPage() {
           variant="secondary"
           size="sm"
           className="relative shrink-0 rounded-lg text-xs font-semibold"
-          onClick={() => dispatch(setActiveModal("followRequests"))}
+          onClick={async () => {
+            await refreshSocialState();
+            dispatch(setActiveModal("followRequests"));
+          }}
         >
           Open
           {followActivityCount > 0 ? (
